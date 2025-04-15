@@ -1,0 +1,38 @@
+{
+  "canisters": {
+    "internet_identity": {
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "frontend": {},
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "type": "custom",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+    },
+    "toic_backend": {
+      "candid": "src/toic_backend/toic_backend.did",
+      "package": "toic_backend",
+      "type": "rust"
+    },
+    "toic_frontend": {
+      "dependencies": [
+        "toic_backend"
+      ],
+      "source": [
+        "src/toic_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "toic_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
