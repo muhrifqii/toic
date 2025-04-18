@@ -32,7 +32,7 @@ pub enum RepositoryError {
     IllegalUpdate { reason: String },
 }
 
-#[derive(Error, Debug, PartialEq, Eq, Clone)]
+#[derive(Error, Debug, PartialEq, Eq, Clone, CandidType)]
 pub enum ServiceError {
     #[error(r#"User identity {identity} cannot be found."#)]
     IdentityNotFound { identity: String },

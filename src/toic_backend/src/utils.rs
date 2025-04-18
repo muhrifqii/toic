@@ -27,7 +27,7 @@ pub mod mocks {
         Principal::from_text(CALLER.with_borrow(|s| s.clone()).as_str()).unwrap()
     }
 
-    pub fn reset_timestamp_to(time: u64) {
+    pub fn reset_timestamp(time: u64) {
         TIMESTAMP.with(|c| c.set(time));
     }
 }
