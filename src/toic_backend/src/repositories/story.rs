@@ -1,5 +1,6 @@
 use ic_stable_structures::{BTreeMap, Cell};
-use std::cell::RefCell;
+use lazy_static::lazy_static;
+use std::{cell::RefCell, sync::Arc};
 
 use crate::{
     structure::{
@@ -19,6 +20,10 @@ thread_local! {
             MEMORY_MANAGER.with_borrow(|m| m.get(ET_STORY_MEM_ID))
         )
     );
+}
+
+lazy_static! {
+    pub static ref STORY_REPOSITORY: Arc<StoryRepository> = Arc::new(StoryRepository::default());
 }
 
 #[derive(Debug, Default)]

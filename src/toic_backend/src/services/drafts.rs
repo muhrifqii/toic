@@ -1,12 +1,23 @@
 use std::sync::Arc;
 
 use candid::Principal;
+use lazy_static::lazy_static;
 
 use crate::{
-    repositories::{draft::DraftRepository, story::StoryRepository},
+    repositories::{
+        draft::{DraftRepository, DRAFT_REPOSITORY},
+        story::{StoryRepository, STORY_REPOSITORY},
+    },
     structure::{AuditableRepository, BinaryTreeRepository},
     types::{Draft, RepositoryError, ServiceError, ServiceResult, Story, StoryLabel},
 };
+
+lazy_static! {
+    pub static ref DRAFT_SERVICE: Arc<DraftService> = Arc::new(DraftService::new(
+        DRAFT_REPOSITORY.clone(),
+        STORY_REPOSITORY.clone()
+    ));
+}
 
 #[derive(Debug, Default)]
 pub struct DraftService {
@@ -32,8 +43,6 @@ impl DraftService {
         author: Principal,
         ai_used: bool,
     ) -> ServiceResult<Draft> {
-        validate_caller(author)?;
-
         let draft = Draft::new(title, content, author, ai_used);
 
         self.draft_repository
@@ -50,8 +59,6 @@ impl DraftService {
         new_content: Option<String>,
         identity: Principal,
     ) -> ServiceResult<Draft> {
-        validate_caller(identity)?;
-
         if new_title.is_none() && new_content.is_none() {
             return Err(ServiceError::UnprocessableEntity {
                 reason: "No fields to update".to_string(),
@@ -80,8 +87,6 @@ impl DraftService {
     }
 
     pub fn publish_draft(&self, id: u64, identity: Principal) -> ServiceResult<Story> {
-        validate_caller(identity)?;
-
         let draft = self
             .draft_repository
             .get(&id)
@@ -119,14 +124,33 @@ impl DraftService {
         Ok(inserted_story)
     }
 
+    pub fn delete_draft(&self, id: u64, identity: Principal) -> ServiceResult<u64> {
+        let draft = self
+            .draft_repository
+            .get(&id)
+            .ok_or(ServiceError::DraftNotFound)?;
+        validate_draft_author(&draft, identity)?;
+
+        self.draft_repository.delete(&id).map_err(|e| match e {
+            RepositoryError::NotFound => ServiceError::DraftNotFound,
+            _ => ServiceError::InternalError {
+                reason: format!("Failed to delete draft: {}", e),
+            },
+        })
+    }
+
+    pub fn get_draft(&self, id: &u64) -> ServiceResult<Draft> {
+        self.draft_repository
+            .get(id)
+            .ok_or(ServiceError::DraftNotFound)
+    }
+
     pub fn get_drafts(
         &self,
         identity: Principal,
         cursor: Option<u64>,
         limit: usize,
     ) -> ServiceResult<(Option<u64>, Vec<Draft>)> {
-        validate_caller(identity)?;
-
         let drafts = self
             .draft_repository
             .get_drafts_by_author(identity, cursor, limit)
@@ -136,16 +160,6 @@ impl DraftService {
 
         Ok((drafts.last().map(|d| d.id), drafts))
     }
-}
-
-// todo: move to presentation layer
-fn validate_caller(identity: Principal) -> Result<(), ServiceError> {
-    if identity == Principal::anonymous() {
-        return Err(ServiceError::IdentityUnauthorized {
-            identity: identity.to_string(),
-        });
-    }
-    Ok(())
 }
 
 fn validate_draft_author(draft: &Draft, identity: Principal) -> Result<(), ServiceError> {
