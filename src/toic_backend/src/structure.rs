@@ -71,15 +71,6 @@ where
     where
         F: FnOnce(&RefCell<BTreeMap<K, V, M>>) -> R;
 
-    fn delete(&self, id: &K) -> RepositoryResult<K> {
-        let old = Self::with_ref(|cell| cell.borrow_mut().remove(id));
-        if old.is_some() {
-            Ok(id.clone())
-        } else {
-            Err(RepositoryError::NotFound)
-        }
-    }
-
     fn get(&self, id: &K) -> Option<V> {
         Self::with_ref(|cell| cell.borrow().get(id))
     }
@@ -102,6 +93,15 @@ where
     fn insert(&self, value: V) -> RepositoryResult<V>;
 
     fn update(&self, value: V) -> RepositoryResult<V>;
+
+    fn delete(&self, id: &K) -> RepositoryResult<K> {
+        let old = Self::with_ref(|cell| cell.borrow_mut().remove(id));
+        if old.is_some() {
+            Ok(id.clone())
+        } else {
+            Err(RepositoryError::NotFound)
+        }
+    }
 }
 
 pub trait AuditableRepository<V, M>:
@@ -133,6 +133,16 @@ where
         let old_value = Self::with_ref(|cell| cell.borrow_mut().insert(value.id(), value.clone()));
         self.save_indexes(&value, old_value.as_ref());
         Ok(value)
+    }
+
+    fn delete(&self, id: &u64) -> RepositoryResult<u64> {
+        let old = Self::with_ref(|cell| cell.borrow_mut().remove(id));
+        if let Some(old_value) = old {
+            self.remove_indexes(&old_value);
+            Ok(id.clone())
+        } else {
+            Err(RepositoryError::NotFound)
+        }
     }
 }
 
