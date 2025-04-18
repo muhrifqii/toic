@@ -1,1 +1,1 @@
-pub mod story;
+pub mod drafts;
