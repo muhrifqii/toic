@@ -3,11 +3,15 @@ use ic_cdk::{caller, export_candid, query, update};
 use services::drafts::DRAFT_SERVICE;
 use types::{Draft, ServiceError, ServiceResult, Story};
 
+mod memory;
 mod repositories;
 mod services;
 mod structure;
+mod token;
 mod types;
 mod utils;
+
+use token::*;
 
 fn get_and_validate_caller() -> ServiceResult<Principal> {
     let identity = caller();

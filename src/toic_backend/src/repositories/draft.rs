@@ -5,14 +5,12 @@ use ic_stable_structures::{BTreeMap, Cell};
 use lazy_static::lazy_static;
 
 use crate::{
+    memory::{ET_DRAFT_MEM_ID, IDX_DRAFT_AUTHOR_MEM_ID, MEMORY_MANAGER, SERIAL_DRAFT_MEM_ID},
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexRepository, IndexableRepository,
-        SerialIdRepository, MEMORY_MANAGER,
+        SerialIdRepository,
     },
-    types::{
-        BTreeMapRefCell, Draft, RepositoryResult, SerialRefCell, VMemory, ET_DRAFT_MEM_ID,
-        IDX_DRAFT_AUTHOR_MEM_ID, SERIAL_DRAFT_MEM_ID,
-    },
+    types::{BTreeMapRefCell, Draft, RepositoryResult, SerialRefCell, VMemory},
 };
 
 thread_local! {
