@@ -1,23 +1,14 @@
 use std::cell::RefCell;
 
 use candid::{CandidType, Principal};
-use ic_stable_structures::{
-    memory_manager::{MemoryId, VirtualMemory},
-    storable::Bound,
-    BTreeMap, Cell, DefaultMemoryImpl, Storable,
-};
+use ic_stable_structures::{storable::Bound, BTreeMap, Cell, Storable};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub type VMemory = VirtualMemory<DefaultMemoryImpl>;
+pub use crate::memory::VMemory;
+
 pub type SerialRefCell = RefCell<Cell<u64, VMemory>>;
 pub type BTreeMapRefCell<K, V> = RefCell<BTreeMap<K, V, VMemory>>;
-
-pub const SERIAL_STORY_MEM_ID: MemoryId = MemoryId::new(1);
-pub const SERIAL_DRAFT_MEM_ID: MemoryId = MemoryId::new(2);
-pub const ET_STORY_MEM_ID: MemoryId = MemoryId::new(3);
-pub const ET_DRAFT_MEM_ID: MemoryId = MemoryId::new(4);
-pub const IDX_DRAFT_AUTHOR_MEM_ID: MemoryId = MemoryId::new(5);
 
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
 pub type ServiceResult<T> = Result<T, ServiceError>;
@@ -44,6 +35,8 @@ pub enum ServiceError {
     DraftNotFound,
     #[error("Unprocessable entity: {reason}")]
     UnprocessableEntity { reason: String },
+    #[error("{entity} already exists")]
+    Conflict { entity: String },
 }
 
 pub trait AuditableEntity {
@@ -160,4 +153,55 @@ impl Draft {
             ai_used,
         }
     }
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct User {
+    pub id: Principal,
+    pub username: Option<String>,
+    pub bio: Option<String>,
+    // pub balance: ToicTokens,
+    pub created_at: u64,
+}
+
+impl Storable for User {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(self, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        ciborium::from_reader(bytes.as_ref()).unwrap()
+    }
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl User {
+    pub fn new(id: Principal, created_at: u64) -> Self {
+        Self {
+            id,
+            username: None,
+            bio: None,
+            // balance: ToicTokens::default(),
+            created_at,
+        }
+    }
+}
+
+#[derive(Debug, CandidType, Deserialize, Clone, Default)]
+pub enum ReactionType {
+    #[default]
+    Like,
+    Clap,
+    Support,
+}
+
+#[derive(Debug, CandidType, Deserialize, Clone)]
+pub struct Reaction {
+    pub id: u64,
+    pub story_id: u64,
+    pub sender: Principal,
+    pub reaction_type: ReactionType,
+    // pub tip: ToicTokens,
 }

@@ -3,11 +3,11 @@ use lazy_static::lazy_static;
 use std::{cell::RefCell, sync::Arc};
 
 use crate::{
+    memory::{ET_STORY_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID},
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexableRepository, SerialIdRepository,
-        MEMORY_MANAGER,
     },
-    types::{BTreeMapRefCell, SerialRefCell, Story, VMemory, ET_STORY_MEM_ID, SERIAL_STORY_MEM_ID},
+    types::{BTreeMapRefCell, SerialRefCell, Story, VMemory},
 };
 
 thread_local! {

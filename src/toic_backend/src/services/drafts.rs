@@ -45,11 +45,14 @@ impl DraftService {
     ) -> ServiceResult<Draft> {
         let draft = Draft::new(title, content, author, ai_used);
 
-        self.draft_repository
-            .insert(draft)
-            .map_err(|e| ServiceError::InternalError {
+        self.draft_repository.insert(draft).map_err(|e| match e {
+            RepositoryError::Conflict => ServiceError::Conflict {
+                entity: "Draft".to_string(),
+            },
+            _ => ServiceError::InternalError {
                 reason: format!("Failed to create draft: {}", e),
-            })
+            },
+        })
     }
 
     pub fn update_draft(

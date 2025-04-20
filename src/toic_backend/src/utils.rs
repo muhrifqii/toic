@@ -1,9 +1,6 @@
-/// Nanoseconds at 1 millisecond
-pub const NANOS_IN_MILLIS: u64 = 1_000_000;
-
-/// Gets current timestamp inside a canister, in milliseconds since the epoch (1970-01-01)
+/// Gets current timestamp inside a canister, in nanoseconds since the epoch (1970-01-01)
 pub fn timestamp() -> u64 {
-    ic_cdk::api::time() / NANOS_IN_MILLIS
+    ic_cdk::api::time()
 }
 
 #[cfg(test)]

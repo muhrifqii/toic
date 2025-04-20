@@ -1,19 +1,11 @@
 use std::cell::RefCell;
 
-use ic_stable_structures::{
-    memory_manager::MemoryManager, BTreeMap, Cell, DefaultMemoryImpl, Memory, Storable,
-};
+use ic_stable_structures::{BTreeMap, Cell, Memory, Storable};
 
 use crate::{
     types::{AuditableEntity, RepositoryError, RepositoryResult},
     utils::timestamp,
 };
-
-thread_local! {
-    pub static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = RefCell::new(
-        MemoryManager::init(DefaultMemoryImpl::default())
-    );
-}
 
 pub trait SerialIdRepository<M>
 where
@@ -82,6 +74,10 @@ where
     fn count(&self) -> u64 {
         Self::with_ref(|cell| cell.borrow().len())
     }
+
+    fn exists(&self, id: &K) -> bool {
+        Self::with_ref(|cell| cell.borrow().contains_key(id))
+    }
 }
 
 pub trait Repository<K, V, M>: BinaryTreeRepository<K, V, M>
@@ -111,7 +107,7 @@ where
     M: Memory,
 {
     fn insert(&self, mut value: V) -> RepositoryResult<V> {
-        if Self::with_ref(|cell| cell.borrow().contains_key(&value.id())) {
+        if self.exists(&value.id()) {
             return Err(RepositoryError::Conflict);
         }
 
@@ -124,7 +120,7 @@ where
     }
 
     fn update(&self, mut value: V) -> RepositoryResult<V> {
-        if Self::with_ref(|cell| !cell.borrow().contains_key(&value.id())) {
+        if self.exists(&value.id()) {
             return Err(RepositoryError::NotFound);
         }
 
