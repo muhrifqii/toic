@@ -9,7 +9,9 @@ use crate::{
         story::{StoryRepository, STORY_REPOSITORY},
     },
     structure::{AuditableRepository, BinaryTreeRepository},
-    types::{Draft, RepositoryError, ServiceError, ServiceResult, Story, StoryLabel},
+    types::{
+        Draft, RepositoryError, SaveDraftArgs, ServiceError, ServiceResult, Story, StoryDetail,
+    },
 };
 
 lazy_static! {
@@ -36,14 +38,15 @@ impl DraftService {
         }
     }
 
-    pub fn create_draft(
-        &self,
-        title: String,
-        content: String,
-        author: Principal,
-        ai_used: bool,
-    ) -> ServiceResult<Draft> {
-        let draft = Draft::new(title, content, author, ai_used);
+    pub fn create_draft(&self, args: SaveDraftArgs, identity: Principal) -> ServiceResult<Draft> {
+        validate_empty_save_args(&args, "Nothing to save")?;
+
+        let draft = Draft::new(
+            args.title.unwrap_or_default(),
+            args.detail.unwrap_or_default(),
+            args.content.unwrap_or_default(),
+            identity,
+        );
 
         self.draft_repository.insert(draft).map_err(|e| match e {
             RepositoryError::Conflict => ServiceError::Conflict {
@@ -58,15 +61,10 @@ impl DraftService {
     pub fn update_draft(
         &self,
         id: u64,
-        new_title: Option<String>,
-        new_content: Option<String>,
+        args: SaveDraftArgs,
         identity: Principal,
     ) -> ServiceResult<Draft> {
-        if new_title.is_none() && new_content.is_none() {
-            return Err(ServiceError::UnprocessableEntity {
-                reason: "No fields to update".to_string(),
-            });
-        }
+        validate_empty_save_args(&args, "Nothing to update")?;
 
         let mut draft = self
             .draft_repository
@@ -74,11 +72,18 @@ impl DraftService {
             .ok_or(ServiceError::DraftNotFound)?;
         validate_draft_author(&draft, identity)?;
 
-        if let Some(new_title) = new_title {
+        if let Some(new_title) = args.title {
             draft.title = new_title;
         }
-        if let Some(new_content) = new_content {
+        if let Some(new_content) = args.content {
             draft.content = new_content;
+        }
+        if let Some(new_detail) = args.detail {
+            draft.detail = StoryDetail::new(
+                new_detail.description,
+                new_detail.mature_content,
+                new_detail.tags,
+            );
         }
 
         self.draft_repository.update(draft).map_err(|e| match e {
@@ -95,20 +100,19 @@ impl DraftService {
             .get(&id)
             .ok_or(ServiceError::DraftNotFound)?;
         validate_draft_author(&draft, identity)?;
-
-        ic_cdk::println!("Publishing draft: {:?} by {:?}", &draft, identity);
+        if draft.title.is_empty() {
+            return Err(ServiceError::UnprocessableEntity {
+                reason: "Draft title cannot be empty".to_string(),
+            });
+        }
+        if draft.content.is_empty() {
+            return Err(ServiceError::UnprocessableEntity {
+                reason: "Draft content cannot be empty".to_string(),
+            });
+        }
 
         // Promote to story
-        let story = Story::new(
-            draft.title.clone(),
-            draft.content.clone(),
-            if draft.ai_used {
-                StoryLabel::AI
-            } else {
-                StoryLabel::OC
-            },
-            draft.author,
-        );
+        let story = Story::new(draft);
 
         let inserted_story =
             self.story_repository
@@ -169,6 +173,15 @@ fn validate_draft_author(draft: &Draft, identity: Principal) -> Result<(), Servi
     if draft.author != identity {
         return Err(ServiceError::IdentityUnauthorized {
             identity: identity.to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_empty_save_args(args: &SaveDraftArgs, message: &str) -> Result<(), ServiceError> {
+    if args.title.is_none() && args.content.is_none() && args.detail.is_none() {
+        return Err(ServiceError::UnprocessableEntity {
+            reason: message.to_string(),
         });
     }
     Ok(())

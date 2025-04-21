@@ -45,23 +45,34 @@ pub trait AuditableEntity {
     fn set_updated_at(&mut self, updated_at: u64);
 }
 
-#[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
-pub enum StoryLabel {
-    /// Original Content
-    OC,
-    /// Collaborated with AI
-    AI,
+#[derive(Debug, CandidType, Deserialize, Serialize, Clone, Default)]
+pub struct StoryDetail {
+    pub description: String,
+    pub mature_content: bool,
+    pub tags: Vec<String>,
+}
+
+impl StoryDetail {
+    pub fn new(description: String, mature_content: bool, tags: Vec<String>) -> Self {
+        Self {
+            description,
+            mature_content,
+            tags,
+        }
+    }
 }
 
 #[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
 pub struct Story {
     pub id: u64,
     pub title: String,
+    pub detail: StoryDetail,
     pub content: String,
-    pub label: StoryLabel,
     pub author: Principal,
     pub total_score: u32,
+    pub total_views: u32,
     pub created_at: u64,
+    pub updated_at: Option<u64>,
 }
 
 impl Storable for Story {
@@ -86,19 +97,23 @@ impl AuditableEntity for Story {
         self.created_at = created_at;
     }
 
-    fn set_updated_at(&mut self, _updated_at: u64) {}
+    fn set_updated_at(&mut self, updated_at: u64) {
+        self.updated_at = Some(updated_at);
+    }
 }
 
 impl Story {
-    pub fn new(title: String, content: String, label: StoryLabel, author: Principal) -> Self {
+    pub fn new(draft: Draft) -> Self {
         Self {
             id: 0,
-            title,
-            content,
-            label,
-            author,
+            title: draft.title,
+            detail: draft.detail,
+            content: draft.content,
+            author: draft.author,
             total_score: 0,
+            total_views: 0,
             created_at: 0,
+            updated_at: None,
         }
     }
 }
@@ -107,11 +122,11 @@ impl Story {
 pub struct Draft {
     pub id: u64,
     pub title: String,
+    pub detail: StoryDetail,
     pub content: String,
     pub author: Principal,
     pub created_at: u64,
-    pub updated_at: u64,
-    pub ai_used: bool,
+    pub updated_at: Option<u64>,
 }
 
 impl Storable for Draft {
@@ -137,20 +152,20 @@ impl AuditableEntity for Draft {
     }
 
     fn set_updated_at(&mut self, updated_at: u64) {
-        self.updated_at = updated_at;
+        self.updated_at = Some(updated_at);
     }
 }
 
 impl Draft {
-    pub fn new(title: String, content: String, author: Principal, ai_used: bool) -> Self {
+    pub fn new(title: String, detail: StoryDetail, content: String, author: Principal) -> Self {
         Self {
             id: 0,
             title,
+            detail,
             content,
             author,
             created_at: 0,
-            updated_at: 0,
-            ai_used,
+            updated_at: None,
         }
     }
 }
@@ -158,9 +173,9 @@ impl Draft {
 #[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
 pub struct User {
     pub id: Principal,
-    pub username: Option<String>,
+    pub name: Option<String>,
     pub bio: Option<String>,
-    // pub balance: ToicTokens,
+    pub follower: u32,
     pub created_at: u64,
 }
 
@@ -181,27 +196,19 @@ impl User {
     pub fn new(id: Principal, created_at: u64) -> Self {
         Self {
             id,
-            username: None,
+            name: None,
             bio: None,
-            // balance: ToicTokens::default(),
+            follower: 0,
             created_at,
         }
     }
 }
 
-#[derive(Debug, CandidType, Deserialize, Clone, Default)]
-pub enum ReactionType {
-    #[default]
-    Like,
-    Clap,
-    Support,
-}
+// candid Args section
 
-#[derive(Debug, CandidType, Deserialize, Clone)]
-pub struct Reaction {
-    pub id: u64,
-    pub story_id: u64,
-    pub sender: Principal,
-    pub reaction_type: ReactionType,
-    // pub tip: ToicTokens,
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize, Default)]
+pub struct SaveDraftArgs {
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub detail: Option<StoryDetail>,
 }
