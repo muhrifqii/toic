@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 
 use candid::{CandidType, Nat};
-use ic_stable_structures::{storable::Bound, Cell, Storable};
+use ic_stable_structures::{storable::Bound, BTreeMap, Cell, Storable};
 use icrc_ledger_types::{
     icrc1::{
         account::Account,
@@ -18,8 +18,9 @@ use serde::{Deserialize, Serialize};
 use crate::types::VMemory;
 
 pub type ConfigRefCell = RefCell<Cell<Configuration, VMemory>>;
-pub type TransactionLog = ic_stable_structures::Vec<TransactionWrapper, VMemory>;
+pub type TransactionLog = ic_stable_structures::Vec<StorableTransaction, VMemory>;
 pub type TransactionLogRefCell = RefCell<TransactionLog>;
+pub type AccountBalanceRefCell = RefCell<BTreeMap<Account, StorableToken, VMemory>>;
 pub type Tokens = Nat;
 
 #[derive(Debug)]
@@ -61,9 +62,9 @@ impl Storable for Configuration {
 }
 
 #[derive(Debug, CandidType, Deserialize, Serialize)]
-pub struct TransactionWrapper(pub Transaction);
+pub struct StorableTransaction(pub Transaction);
 
-impl Storable for TransactionWrapper {
+impl Storable for StorableTransaction {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         let mut encoded = Vec::new();
         ciborium::into_writer(&self.0, &mut encoded).unwrap();
@@ -80,13 +81,30 @@ impl Storable for TransactionWrapper {
     };
 }
 
+#[derive(Debug, CandidType, Deserialize, Serialize)]
+pub struct StorableToken(pub Tokens);
+
+impl Storable for StorableToken {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(&self.0, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        Self(ciborium::from_reader(bytes.as_ref()).unwrap())
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 #[derive(CandidType, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SupportedStandard {
     pub name: String,
     pub url: String,
 }
 
-#[derive(Debug, CandidType, Deserialize)]
+#[derive(Debug, CandidType, Deserialize, Clone)]
 pub struct CreateTokenArgs {
     pub token_name: String,
     pub token_symbol: String,

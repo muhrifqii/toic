@@ -2,8 +2,10 @@
 
 use std::cell::RefCell;
 
+#[cfg(any(not(test), rust_analyzer))]
+use ic_cdk::api::caller;
 use ic_cdk::{query, update};
-use ic_stable_structures::Cell;
+use ic_stable_structures::{BTreeMap, Cell};
 pub use icrc_ledger_types::{
     icrc::generic_metadata_value::MetadataValue,
     icrc1::{
@@ -18,15 +20,20 @@ pub use icrc_ledger_types::{
     icrc3::transactions::{Approve, Burn, Mint, Transaction, Transfer},
 };
 
-use crate::{
-    memory::{MEMORY_MANAGER, TOKEN_CONFIG_MEM_ID, TOKEN_TX_LOG_MEM_ID},
-    utils::timestamp,
+use crate::memory::{
+    MEMORY_MANAGER, TOKEN_ACCOUNT_BALANCE_MEM_ID, TOKEN_CONFIG_MEM_ID, TOKEN_TX_LOG_MEM_ID,
+};
+#[cfg(any(not(test), rust_analyzer))]
+use crate::utils::timestamp;
+
+use super::{
+    to_approve_error, to_transfer_from_error, AccountBalanceRefCell, ConfigRefCell, Configuration,
+    CreateTokenArgs, StorableToken, StorableTransaction, SupportedStandard, Tokens, TransactionLog,
+    TransactionLogRefCell, TxInfo,
 };
 
-use super::types::{
-    to_approve_error, to_transfer_from_error, ConfigRefCell, Configuration, CreateTokenArgs,
-    SupportedStandard, Tokens, TransactionLog, TransactionLogRefCell, TransactionWrapper, TxInfo,
-};
+#[cfg(all(test, not(rust_analyzer)))]
+use crate::utils::mocks::{caller, timestamp};
 
 const MAX_MEMO_SIZE: usize = 32;
 const PERMITTED_DRIFT_NANOS: u64 = 60_000_000_000;
@@ -49,6 +56,11 @@ thread_local! {
         ).expect("failed to initialize the transaction log")
     );
 
+    static BALANCES: AccountBalanceRefCell = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(TOKEN_ACCOUNT_BALANCE_MEM_ID))
+        )
+    );
 }
 
 /// Calculates the total supply of tokens by traversing the transaction log.
@@ -78,42 +90,98 @@ fn total_supply() -> Tokens {
     })
 }
 
-/// Calculates the current balance of an account, by traversing the transaction log.
-/// This is a naive implementation and may not be efficient for large transaction logs.
-fn get_balance(account: Account) -> Tokens {
-    TRANSACTION_LOG.with_borrow(|log| {
-        let mut balance = Tokens::default();
-        for tx_wrapper in log.iter() {
-            let tx = tx_wrapper.0;
-            if let Some(mint) = tx.mint {
-                if mint.to == account {
-                    balance += mint.amount;
-                }
-            }
-            if let Some(burn) = tx.burn {
-                if burn.from == account {
-                    balance -= burn.amount;
-                }
-            }
-            if let Some(transfer) = tx.transfer {
-                if transfer.to == account {
-                    balance += transfer.amount.clone();
-                }
-                if transfer.from == account {
-                    balance -= transfer.amount;
-                    if let Some(fee) = transfer.fee {
-                        balance -= fee;
-                    }
-                }
-            }
-            if let Some(approve) = tx.approve {
-                if let Some(fee) = approve.fee {
-                    balance -= fee;
-                }
+/// Retrieves the balance of an account from the cache.
+fn get_cached_balance(account: Account) -> Tokens {
+    BALANCES.with_borrow(|balances| {
+        balances
+            .get(&account)
+            .map(|bal| bal.0.clone())
+            .unwrap_or(Tokens::default())
+    })
+}
+
+/// Updates the balance of an account in the cache.
+/// This function is called after a transaction is successfully applied.
+fn update_balance(tx: &Transaction) -> Result<(), TransferError> {
+    BALANCES.with_borrow_mut(|balances| {
+        if let Some(mint) = &tx.mint {
+            balances.insert(
+                mint.to,
+                StorableToken(
+                    balances
+                        .get(&mint.to)
+                        .map(|bal| bal.0 + mint.amount.clone())
+                        .unwrap_or_else(|| mint.amount.clone()),
+                ),
+            );
+        }
+        if let Some(burn) = &tx.burn {
+            balances.insert(
+                burn.from,
+                StorableToken(
+                    balances
+                        .get(&burn.from)
+                        .map(|bal| bal.0 - burn.amount.clone())
+                        .ok_or(TransferError::InsufficientFunds {
+                            balance: Tokens::default(),
+                        })?,
+                ),
+            );
+        }
+        if let Some(transfer) = &tx.transfer {
+            balances.insert(
+                transfer.to,
+                StorableToken(
+                    balances
+                        .get(&transfer.to)
+                        .map(|bal| bal.0 + transfer.amount.clone())
+                        .unwrap_or_else(|| transfer.amount.clone()),
+                ),
+            );
+            balances.insert(
+                transfer.from,
+                StorableToken(
+                    balances
+                        .get(&transfer.from)
+                        .map(|bal| {
+                            bal.0
+                                - transfer.amount.clone()
+                                - transfer.fee.clone().unwrap_or_default()
+                        })
+                        .ok_or(TransferError::InsufficientFunds {
+                            balance: Tokens::default(),
+                        })?,
+                ),
+            );
+        }
+        if let Some(approve) = &tx.approve {
+            if let Some(fee) = &approve.fee {
+                balances.insert(
+                    approve.from,
+                    StorableToken(
+                        balances
+                            .get(&approve.from)
+                            .map(|bal| bal.0 - fee.clone())
+                            .ok_or(TransferError::InsufficientFunds {
+                                balance: Tokens::default(),
+                            })?,
+                    ),
+                );
             }
         }
-        balance
+        Ok(())
     })
+}
+
+/// Rebuilds the balances cache from the transaction log, if there's a discrepancy.
+fn rebuild_balances_cache() {
+    BALANCES.with_borrow_mut(|b| b.clear_new());
+    TRANSACTION_LOG.with_borrow(|log| {
+        for tx_wrapper in log.iter() {
+            let tx = tx_wrapper.0;
+            update_balance(&tx).expect("Failed to rebuild balance caches");
+        }
+    });
 }
 
 /// Calculates how much `spender` is allowed to spend from `account` at the moment
@@ -185,75 +253,79 @@ fn validate_memo(memo: Option<&Memo>) -> Result<(), TransferError> {
 }
 
 /// records the validated transaction into the transaction log
-fn record_valid_transaction(tx: &TransactionWrapper) -> BlockIndex {
-    TRANSACTION_LOG.with_borrow_mut(|log| {
+fn record_valid_transaction(tx: &StorableTransaction) -> BlockIndex {
+    let block_index = TRANSACTION_LOG.with_borrow_mut(|log| {
         let idx = log.len();
         log.push(tx).expect("Failed to save transaction");
         idx.into()
-    })
+    });
+    block_index
+}
+
+impl PartialEq<Transaction> for TxInfo {
+    fn eq(&self, other: &Transaction) -> bool {
+        if self.is_approval {
+            if let Some(approve) = &other.approve {
+                self.from == approve.from
+                    && self.spender == Some(approve.spender)
+                    && self.amount == approve.amount
+                    && self.expected_allowance == approve.expected_allowance
+                    && self.expires_at == approve.expires_at
+                    && self.memo == approve.memo
+                    && self.created_at_time == approve.created_at_time
+            } else {
+                false
+            }
+        } else {
+            let minting_account = CONFIG.with_borrow(|config| config.get().minting_account);
+            if let Some(burn) = &other.burn {
+                self.to == minting_account
+                    && self.from == burn.from
+                    && self.amount == burn.amount
+                    && self.spender == burn.spender
+                    && self.memo == burn.memo
+                    && self.created_at_time == burn.created_at_time
+            } else if let Some(mint) = &other.mint {
+                Some(self.from) == minting_account
+                    && self.to == Some(mint.to)
+                    && self.amount == mint.amount
+                    && self.memo == mint.memo
+                    && self.created_at_time == mint.created_at_time
+            } else if let Some(transfer) = &other.transfer {
+                self.from == transfer.from
+                    && self.to == Some(transfer.to)
+                    && self.amount == transfer.amount
+                    && self.spender == transfer.spender
+                    && self.memo == transfer.memo
+                    && self.created_at_time == transfer.created_at_time
+            } else {
+                false
+            }
+        }
+    }
+}
+
+impl PartialEq for StorableTransaction {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
 }
 
 /// tries to find a transaction in the transaction log
 fn find_tx(tx: &TxInfo) -> Option<BlockIndex> {
     TRANSACTION_LOG.with_borrow(|log| {
         for (i, stored_tx_wrapper) in log.iter().enumerate() {
-            let stored_tx = stored_tx_wrapper.0;
-            if tx.is_approval {
-                if let Some(approve) = stored_tx.approve {
-                    if tx.from == approve.from
-                        && tx.spender == Some(approve.spender)
-                        && tx.amount == approve.amount
-                        && tx.expected_allowance == approve.expected_allowance
-                        && tx.expires_at == approve.expires_at
-                        && tx.memo == approve.memo
-                        && tx.created_at_time == approve.created_at_time
-                    {
-                        return Some(i.into());
-                    }
-                }
-            } else {
-                let minting_account = CONFIG.with_borrow(|config| config.get().minting_account);
-                if let Some(burn) = stored_tx.burn {
-                    if tx.to == minting_account
-                        && tx.from == burn.from
-                        && tx.amount == burn.amount
-                        && tx.spender == burn.spender
-                        && tx.memo == burn.memo
-                        && tx.created_at_time == burn.created_at_time
-                    {
-                        return Some(i.into());
-                    }
-                }
-                if let Some(mint) = stored_tx.mint {
-                    if Some(tx.from) == minting_account
-                        && tx.to == Some(mint.to)
-                        && tx.amount == mint.amount
-                        && tx.memo == mint.memo
-                        && tx.created_at_time == mint.created_at_time
-                    {
-                        return Some(i.into());
-                    }
-                }
-                if let Some(transfer) = stored_tx.transfer {
-                    if tx.from == transfer.from
-                        && tx.to == Some(transfer.to)
-                        && tx.amount == transfer.amount
-                        && tx.spender == transfer.spender
-                        && tx.memo == transfer.memo
-                        && tx.created_at_time == transfer.created_at_time
-                    {
-                        return Some(i.into());
-                    }
-                }
+            if tx == &stored_tx_wrapper.0 {
+                return Some(i.into());
             }
         }
         None
     })
 }
 
-fn map_tx_approval(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
+fn map_tx_approval(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
     let transfer_fee = CONFIG.with_borrow(|config| config.get().transfer_fee.clone());
-    Ok(TransactionWrapper(Transaction::approve(
+    Ok(StorableTransaction(Transaction::approve(
         Approve {
             from: tx.from,
             spender: tx.spender.expect("Bug: failed to forward spender"),
@@ -268,8 +340,8 @@ fn map_tx_approval(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferE
     )))
 }
 
-fn map_tx_mint(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
-    Ok(TransactionWrapper(Transaction::mint(
+fn map_tx_mint(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
+    Ok(StorableTransaction(Transaction::mint(
         Mint {
             amount: tx.amount,
             to: tx.to.expect("Bug: failed to forward mint receiver"),
@@ -280,18 +352,18 @@ fn map_tx_mint(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError
     )))
 }
 
-fn map_tx_burnt(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
+fn map_tx_burnt(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
     let transfer_fee = CONFIG.with_borrow(|config| config.get().transfer_fee.clone());
     if tx.amount < transfer_fee {
         return Err(TransferError::BadBurn {
             min_burn_amount: transfer_fee.clone(),
         });
     }
-    let balance = get_balance(tx.from);
+    let balance = get_cached_balance(tx.from);
     if balance < tx.amount.clone() + transfer_fee {
         return Err(TransferError::InsufficientFunds { balance });
     }
-    Ok(TransactionWrapper(Transaction::burn(
+    Ok(StorableTransaction(Transaction::burn(
         Burn {
             amount: tx.amount,
             from: tx.from,
@@ -303,13 +375,13 @@ fn map_tx_burnt(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferErro
     )))
 }
 
-fn map_tx_transfer(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
+fn map_tx_transfer(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
     let transfer_fee = CONFIG.with_borrow(|config| config.get().transfer_fee.clone());
-    let balance = get_balance(tx.from);
+    let balance = get_cached_balance(tx.from);
     if balance < tx.amount.clone() + transfer_fee.clone() {
         return Err(TransferError::InsufficientFunds { balance });
     }
-    Ok(TransactionWrapper(Transaction::transfer(
+    Ok(StorableTransaction(Transaction::transfer(
         Transfer {
             amount: tx.amount,
             from: tx.from,
@@ -324,7 +396,7 @@ fn map_tx_transfer(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferE
 }
 
 /// Turns TxInfo into a validated transaction
-fn map_tx(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
+fn map_tx(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
     // Deduplication only happens if `created_at_time` is set
     if tx.created_at_time.is_some() {
         if let Some(duplicate_of) = find_tx(&tx) {
@@ -350,13 +422,15 @@ fn map_tx(tx: TxInfo, now: u64) -> Result<TransactionWrapper, TransferError> {
     map_tx_transfer(tx, now)
 }
 
-/// Runs validity checks and records the transaction if it is valid
+/// Runs validity checks and records the transaction followed by updating balance cahches if it is valid
 fn apply_tx(tx: TxInfo) -> Result<BlockIndex, TransferError> {
     validate_memo(tx.memo.as_ref())?;
     let now = timestamp();
     validate_created_at_time(tx.created_at_time, now)?;
     let transaction = map_tx(tx, now)?;
-    Ok(record_valid_transaction(&transaction))
+    let block = record_valid_transaction(&transaction);
+    update_balance(&transaction.0)?;
+    Ok(block)
 }
 
 #[update]
@@ -366,10 +440,10 @@ fn create_token(args: CreateTokenArgs) -> Result<String, String> {
     }
 
     let minting_account = Account {
-        owner: ic_cdk::api::caller(),
+        owner: caller(),
         subaccount: None,
     };
-    let init_tx = TransactionWrapper(Transaction::mint(
+    let init_tx = StorableTransaction(Transaction::mint(
         Mint {
             amount: args.initial_supply,
             to: minting_account,
@@ -385,7 +459,7 @@ fn create_token(args: CreateTokenArgs) -> Result<String, String> {
                 token_name: args.token_name,
                 token_symbol: args.token_symbol,
                 token_logo: args.token_logo,
-                transfer_fee: 10_000_usize.into(),
+                transfer_fee: 1_000_usize.into(),
                 decimals: 8,
                 minting_account: Some(minting_account),
                 token_created: true,
@@ -406,8 +480,7 @@ fn delete_token() -> Result<String, String> {
         return Err("Token not created".to_string());
     };
 
-    if ic_cdk::api::caller()
-        != CONFIG.with_borrow(|config| config.get().minting_account.clone().unwrap().owner)
+    if caller() != CONFIG.with_borrow(|config| config.get().minting_account.clone().unwrap().owner)
     {
         return Err("Caller is not the token creator".to_string());
     };
@@ -426,7 +499,7 @@ fn delete_token() -> Result<String, String> {
 #[update]
 fn icrc1_transfer(arg: TransferArg) -> Result<BlockIndex, TransferError> {
     let from = Account {
-        owner: ic_cdk::api::caller(),
+        owner: caller(),
         subaccount: arg.from_subaccount,
     };
     let tx = TxInfo {
@@ -446,7 +519,7 @@ fn icrc1_transfer(arg: TransferArg) -> Result<BlockIndex, TransferError> {
 
 #[query]
 fn icrc1_balance_of(account: Account) -> Tokens {
-    get_balance(account)
+    get_cached_balance(account)
 }
 
 #[query]
@@ -517,10 +590,10 @@ fn icrc1_supported_standards() -> Vec<SupportedStandard> {
 fn icrc2_approve(arg: ApproveArgs) -> Result<BlockIndex, ApproveError> {
     validate_memo(arg.memo.as_ref()).map_err(to_approve_error)?;
     let approver_account = Account {
-        owner: ic_cdk::api::caller(),
+        owner: caller(),
         subaccount: arg.from_subaccount,
     };
-    let now = ic_cdk::api::time();
+    let now = timestamp();
     if let Some(expected_allowance) = arg.expected_allowance.as_ref() {
         let current_allowance = allowance(approver_account, arg.spender, now).allowance;
         if current_allowance != *expected_allowance {
@@ -544,7 +617,7 @@ fn icrc2_approve(arg: ApproveArgs) -> Result<BlockIndex, ApproveError> {
 
 #[update]
 fn icrc2_transfer_from(arg: TransferFromArgs) -> Result<BlockIndex, TransferFromError> {
-    if ic_cdk::api::caller() == arg.from.owner {
+    if caller() == arg.from.owner {
         return icrc1_transfer(TransferArg {
             to: arg.to,
             from_subaccount: arg.from.subaccount,
@@ -557,10 +630,10 @@ fn icrc2_transfer_from(arg: TransferFromArgs) -> Result<BlockIndex, TransferFrom
     }
     validate_memo(arg.memo.as_ref()).map_err(to_transfer_from_error)?;
     let spender = Account {
-        owner: ic_cdk::api::caller(),
+        owner: caller(),
         subaccount: arg.spender_subaccount,
     };
-    let now = ic_cdk::api::time();
+    let now = timestamp();
     let allowance = allowance(arg.from, spender, now);
     let transfer_fee = CONFIG.with_borrow(|config| config.get().transfer_fee.clone());
     if allowance.allowance < arg.amount.clone() + transfer_fee {
@@ -585,6 +658,181 @@ fn icrc2_transfer_from(arg: TransferFromArgs) -> Result<BlockIndex, TransferFrom
 
 #[query]
 fn icrc2_allowance(arg: AllowanceArgs) -> Allowance {
-    let now = ic_cdk::api::time();
+    let now = timestamp();
     allowance(arg.account, arg.spender, now)
+}
+#[cfg(test)]
+mod tests {
+    use candid::Principal;
+    use icrc_ledger_types::icrc1::{account::Account, transfer::TransferArg};
+
+    use crate::{
+        token::{
+            api::{
+                create_token, delete_token, icrc1_balance_of, icrc1_decimals, icrc1_fee,
+                icrc1_metadata, icrc1_minting_account, icrc1_name, icrc1_supported_standards,
+                icrc1_token_symbol, icrc1_total_supply, icrc1_transfer, token_created,
+                validate_created_at_time, BALANCES, TRANSACTION_LOG, TRANSACTION_WINDOW_NANOS,
+            },
+            CreateTokenArgs,
+        },
+        utils::mocks::{caller, reset_timestamp, timestamp},
+        Tokens,
+    };
+
+    fn mock_principal() -> Principal {
+        Principal::from_text("aaaaa-aa").unwrap()
+    }
+
+    fn create_token_with_default_args() -> Result<String, String> {
+        let args = CreateTokenArgs {
+            token_name: "TestToken".to_string(),
+            token_symbol: "TT".to_string(),
+            token_logo: "logo".to_string(),
+            initial_supply: 1_000_000_000_usize.into(),
+        };
+        create_token(args)
+    }
+
+    #[test]
+    fn test_create_token() {
+        let result = create_token_with_default_args();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Token created".to_string());
+        assert!(token_created());
+    }
+
+    #[test]
+    fn test_create_token_already_created() {
+        create_token_with_default_args().unwrap();
+        let result = create_token_with_default_args();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Token already created".to_string());
+    }
+
+    #[test]
+    fn test_delete_token() {
+        create_token_with_default_args().unwrap();
+        let result = delete_token();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Token deleted".to_string());
+        assert!(!token_created());
+    }
+
+    #[test]
+    fn test_delete_token_not_created() {
+        let result = delete_token();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Token not created".to_string());
+    }
+
+    #[test]
+    fn test_icrc1_metadata() {
+        create_token_with_default_args().unwrap();
+        let minting_account = icrc1_minting_account().unwrap();
+        assert_eq!(minting_account.owner, caller());
+        assert_eq!(minting_account.subaccount, None);
+
+        let expected_fee: Tokens = 1_000_usize.into();
+        assert_eq!(icrc1_fee(), expected_fee);
+        assert_eq!(icrc1_decimals(), 8);
+        assert_eq!(icrc1_name(), "TestToken".to_string());
+        assert_eq!(icrc1_token_symbol(), "TT".to_string());
+        assert_eq!(icrc1_metadata().len(), 5);
+        assert_eq!(icrc1_metadata()[0].0, "icrc1:name");
+        assert_eq!(icrc1_metadata()[1].0, "icrc1:symbol");
+        assert_eq!(icrc1_metadata()[2].0, "icrc1:decimals");
+        assert_eq!(icrc1_metadata()[3].0, "icrc1:fee");
+        assert_eq!(icrc1_metadata()[4].0, "icrc1:logo");
+    }
+
+    #[test]
+    fn test_icrc1_standards() {
+        let standards = icrc1_supported_standards();
+        assert_eq!(standards.len(), 2);
+        assert_eq!(standards[0].name, "ICRC-1");
+        assert_eq!(standards[1].name, "ICRC-2");
+    }
+
+    #[test]
+    fn test_icrc1_transfer() {
+        create_token_with_default_args().unwrap();
+
+        let to = Account {
+            owner: mock_principal(),
+            subaccount: None,
+        };
+
+        let transfer_arg = TransferArg {
+            from_subaccount: None,
+            to,
+            amount: 10_000_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        };
+
+        let result = icrc1_transfer(transfer_arg);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_icrc1_balance_of() {
+        create_token_with_default_args().unwrap();
+
+        let account = Account {
+            owner: mock_principal(),
+            subaccount: None,
+        };
+        icrc1_transfer(TransferArg {
+            from_subaccount: None,
+            to: account,
+            fee: None,
+            created_at_time: None,
+            memo: None,
+            amount: 1000_usize.into(),
+        })
+        .unwrap();
+
+        assert_eq!(BALANCES.with_borrow(|b| b.len()), 1);
+        assert_eq!(TRANSACTION_LOG.with_borrow(|l| l.len()), 2);
+
+        let balance = icrc1_balance_of(account);
+        let expected: Tokens = 1_000_usize.into();
+        assert_eq!(balance, expected);
+    }
+
+    #[test]
+    fn test_icrc1_total_supply() {
+        create_token_with_default_args().unwrap();
+
+        let total_supply = icrc1_total_supply();
+        let expected: Tokens = 1_000_000_000_usize.into();
+        assert_eq!(total_supply, expected);
+    }
+
+    // #[test]
+    // fn test_validate_memo() {
+    //     let valid_memo = Memo(vec![1, 2, 3]);
+    //     let result = validate_memo(Some(&valid_memo));
+    //     assert!(result.is_ok());
+
+    //     let invalid_memo = Memo(vec![0; MAX_MEMO_SIZE + 1]);
+    //     let result = validate_memo(Some(&invalid_memo));
+    //     assert!(result.is_err());
+    // }
+
+    #[test]
+    fn test_validate_created_at_time() {
+        reset_timestamp(TRANSACTION_WINDOW_NANOS * 3);
+        let now = timestamp();
+        let valid_time = Some(now - TRANSACTION_WINDOW_NANOS / 2);
+        let result = validate_created_at_time(valid_time, now);
+        assert!(result.is_ok());
+
+        let invalid_time = Some(now - TRANSACTION_WINDOW_NANOS * 2);
+        let result = validate_created_at_time(invalid_time, now);
+        assert!(result.is_err());
+        reset_timestamp(0);
+    }
 }
