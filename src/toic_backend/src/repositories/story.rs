@@ -3,11 +3,11 @@ use lazy_static::lazy_static;
 use std::{cell::RefCell, sync::Arc};
 
 use crate::{
-    memory::{ET_STORY_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID},
+    memory::{ET_STORY_MEM_ID, IDX_STORY_CATEGORY_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID},
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexableRepository, SerialIdRepository,
     },
-    types::{BTreeMapRefCell, SerialRefCell, Story, VMemory},
+    types::{BTreeMapRefCell, Category, SerialRefCell, Story, VMemory},
 };
 
 thread_local! {
@@ -18,6 +18,12 @@ thread_local! {
     static STORY: BTreeMapRefCell<u64, Story> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(ET_STORY_MEM_ID))
+        )
+    );
+
+    static STORY_CATEGORY_INDEX: BTreeMapRefCell<(Category, u64), ()> = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_CATEGORY_MEM_ID))
         )
     );
 }

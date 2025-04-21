@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use candid::{CandidType, Principal};
 use ic_stable_structures::{storable::Bound, BTreeMap, Cell, Storable};
 use serde::{Deserialize, Serialize};
+use strum::EnumString;
 use thiserror::Error;
 
 pub use crate::memory::VMemory;
@@ -45,19 +46,48 @@ pub trait AuditableEntity {
     fn set_updated_at(&mut self, updated_at: u64);
 }
 
-#[derive(Debug, CandidType, Deserialize, Serialize, Clone, Default)]
+#[derive(
+    Debug, Clone, CandidType, Deserialize, Serialize, EnumString, PartialEq, PartialOrd, Eq, Ord,
+)]
+pub enum Category {
+    SciFi,
+    Fantasy,
+    Comedy,
+    Romance,
+    Horror,
+    Thriller,
+    Crime,
+    Adventure,
+    NonFiction,
+    Biography,
+}
+
+impl Storable for Category {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(self, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        ciborium::from_reader(bytes.as_ref()).unwrap()
+    }
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
 pub struct StoryDetail {
     pub description: String,
     pub mature_content: bool,
-    pub tags: Vec<String>,
+    pub category: Category,
 }
 
 impl StoryDetail {
-    pub fn new(description: String, mature_content: bool, tags: Vec<String>) -> Self {
+    pub fn new(description: String, mature_content: bool, category: Category) -> Self {
         Self {
             description,
             mature_content,
-            tags,
+            category,
         }
     }
 }
@@ -69,10 +99,11 @@ pub struct Story {
     pub detail: StoryDetail,
     pub content: String,
     pub author: Principal,
-    pub total_score: u32,
+    pub total_support: u32,
     pub total_views: u32,
     pub created_at: u64,
     pub updated_at: Option<u64>,
+    pub read_time: u32,
 }
 
 impl Storable for Story {
@@ -103,17 +134,18 @@ impl AuditableEntity for Story {
 }
 
 impl Story {
-    pub fn new(draft: Draft) -> Self {
+    pub fn new(draft: Draft, detail: StoryDetail) -> Self {
         Self {
             id: 0,
             title: draft.title,
-            detail: draft.detail,
+            detail,
             content: draft.content,
             author: draft.author,
-            total_score: 0,
+            total_support: 0,
             total_views: 0,
             created_at: 0,
             updated_at: None,
+            read_time: draft.read_time,
         }
     }
 }
@@ -122,11 +154,12 @@ impl Story {
 pub struct Draft {
     pub id: u64,
     pub title: String,
-    pub detail: StoryDetail,
+    pub detail: Option<StoryDetail>,
     pub content: String,
     pub author: Principal,
     pub created_at: u64,
     pub updated_at: Option<u64>,
+    pub read_time: u32,
 }
 
 impl Storable for Draft {
@@ -157,7 +190,12 @@ impl AuditableEntity for Draft {
 }
 
 impl Draft {
-    pub fn new(title: String, detail: StoryDetail, content: String, author: Principal) -> Self {
+    pub fn new(
+        title: String,
+        detail: Option<StoryDetail>,
+        content: String,
+        author: Principal,
+    ) -> Self {
         Self {
             id: 0,
             title,
@@ -166,6 +204,7 @@ impl Draft {
             author,
             created_at: 0,
             updated_at: None,
+            read_time: 0,
         }
     }
 }

@@ -12,6 +12,7 @@ use crate::{
     types::{
         Draft, RepositoryError, SaveDraftArgs, ServiceError, ServiceResult, Story, StoryDetail,
     },
+    utils::estimate_read_time,
 };
 
 lazy_static! {
@@ -38,15 +39,20 @@ impl DraftService {
         }
     }
 
-    pub fn create_draft(&self, args: SaveDraftArgs, identity: Principal) -> ServiceResult<Draft> {
+    pub async fn create_draft(
+        &self,
+        args: SaveDraftArgs,
+        identity: Principal,
+    ) -> ServiceResult<Draft> {
         validate_empty_save_args(&args, "Nothing to save")?;
 
-        let draft = Draft::new(
+        let mut draft = Draft::new(
             args.title.unwrap_or_default(),
-            args.detail.unwrap_or_default(),
+            args.detail,
             args.content.unwrap_or_default(),
             identity,
         );
+        set_estimated_read_time(&mut draft);
 
         self.draft_repository.insert(draft).map_err(|e| match e {
             RepositoryError::Conflict => ServiceError::Conflict {
@@ -58,7 +64,7 @@ impl DraftService {
         })
     }
 
-    pub fn update_draft(
+    pub async fn update_draft(
         &self,
         id: u64,
         args: SaveDraftArgs,
@@ -78,13 +84,10 @@ impl DraftService {
         if let Some(new_content) = args.content {
             draft.content = new_content;
         }
-        if let Some(new_detail) = args.detail {
-            draft.detail = StoryDetail::new(
-                new_detail.description,
-                new_detail.mature_content,
-                new_detail.tags,
-            );
+        if args.detail.is_some() {
+            draft.detail = args.detail;
         }
+        set_estimated_read_time(&mut draft);
 
         self.draft_repository.update(draft).map_err(|e| match e {
             RepositoryError::NotFound => ServiceError::DraftNotFound,
@@ -94,25 +97,26 @@ impl DraftService {
         })
     }
 
-    pub fn publish_draft(&self, id: u64, identity: Principal) -> ServiceResult<Story> {
+    pub async fn publish_draft(&self, id: u64, identity: Principal) -> ServiceResult<Story> {
         let draft = self
             .draft_repository
             .get(&id)
             .ok_or(ServiceError::DraftNotFound)?;
         validate_draft_author(&draft, identity)?;
-        if draft.title.is_empty() {
+        if draft.title.is_empty() || draft.content.is_empty() {
             return Err(ServiceError::UnprocessableEntity {
-                reason: "Draft title cannot be empty".to_string(),
+                reason: "Title and content cannot be empty".to_string(),
             });
         }
-        if draft.content.is_empty() {
-            return Err(ServiceError::UnprocessableEntity {
-                reason: "Draft content cannot be empty".to_string(),
-            });
-        }
+        let detail = draft
+            .detail
+            .clone()
+            .ok_or_else(|| ServiceError::UnprocessableEntity {
+                reason: "Story detail is required".to_string(),
+            })?;
 
         // Promote to story
-        let story = Story::new(draft);
+        let story = Story::new(draft, detail);
 
         let inserted_story =
             self.story_repository
@@ -131,7 +135,7 @@ impl DraftService {
         Ok(inserted_story)
     }
 
-    pub fn delete_draft(&self, id: u64, identity: Principal) -> ServiceResult<u64> {
+    pub async fn delete_draft(&self, id: u64, identity: Principal) -> ServiceResult<u64> {
         let draft = self
             .draft_repository
             .get(&id)
@@ -166,6 +170,15 @@ impl DraftService {
             })?;
 
         Ok((drafts.last().map(|d| d.id), drafts))
+    }
+}
+
+fn set_estimated_read_time(draft: &mut Draft) {
+    let content_len = draft.content.len();
+    if content_len > 200 {
+        draft.read_time = estimate_read_time(&draft.content);
+    } else if content_len > 0 {
+        draft.read_time = 1;
     }
 }
 

@@ -1,7 +1,6 @@
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
-use services::drafts::DRAFT_SERVICE;
-use types::{Draft, SaveDraftArgs, ServiceError, ServiceResult, Story};
+use services::draft::DRAFT_SERVICE;
 
 mod memory;
 mod repositories;
@@ -12,6 +11,7 @@ mod types;
 mod utils;
 
 use token::*;
+use types::*;
 
 fn get_and_validate_caller() -> ServiceResult<Principal> {
     let identity = caller();
@@ -27,28 +27,28 @@ fn get_and_validate_caller() -> ServiceResult<Principal> {
 async fn create_draft(args: SaveDraftArgs) -> ServiceResult<Draft> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.create_draft(args, identity)
+    DRAFT_SERVICE.create_draft(args, identity).await
 }
 
 #[update]
 async fn update_draft(id: u64, args: SaveDraftArgs) -> ServiceResult<Draft> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.update_draft(id, args, identity)
+    DRAFT_SERVICE.update_draft(id, args, identity).await
 }
 
 #[update]
 async fn publish_draft(id: u64) -> ServiceResult<Story> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.publish_draft(id, identity)
+    DRAFT_SERVICE.publish_draft(id, identity).await
 }
 
 #[update]
 async fn delete_draft(id: u64) -> ServiceResult<()> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.delete_draft(id, identity).map(|_| ())
+    DRAFT_SERVICE.delete_draft(id, identity).await.map(|_| ())
 }
 
 #[query]

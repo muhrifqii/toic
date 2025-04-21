@@ -19,5 +19,8 @@ pub const ET_STORY_MEM_ID: MemoryId = MemoryId::new(3);
 pub const ET_DRAFT_MEM_ID: MemoryId = MemoryId::new(4);
 pub const IDX_DRAFT_AUTHOR_MEM_ID: MemoryId = MemoryId::new(5);
 pub const ET_USER_MEM_ID: MemoryId = MemoryId::new(6);
-pub const TOKEN_CONFIG_MEM_ID: MemoryId = MemoryId::new(7);
-pub const TOKEN_TX_LOG_MEM_ID: MemoryId = MemoryId::new(8);
+pub const IDX_STORY_CATEGORY_MEM_ID: MemoryId = MemoryId::new(7);
+
+pub const TOKEN_CONFIG_MEM_ID: MemoryId = MemoryId::new(8);
+pub const TOKEN_TX_LOG_MEM_ID: MemoryId = MemoryId::new(9);
+pub const TOKEN_ACCOUNT_BALANCE_MEM_ID: MemoryId = MemoryId::new(10);
