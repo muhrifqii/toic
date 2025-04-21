@@ -1,7 +1,7 @@
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
 use services::drafts::DRAFT_SERVICE;
-use types::{Draft, ServiceError, ServiceResult, Story};
+use types::{Draft, SaveDraftArgs, ServiceError, ServiceResult, Story};
 
 mod memory;
 mod repositories;
@@ -24,25 +24,17 @@ fn get_and_validate_caller() -> ServiceResult<Principal> {
 }
 
 #[update]
-async fn create_draft(
-    title: String,
-    content: String,
-    assistant_used: bool,
-) -> ServiceResult<Draft> {
+async fn create_draft(args: SaveDraftArgs) -> ServiceResult<Draft> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.create_draft(title, content, identity, assistant_used)
+    DRAFT_SERVICE.create_draft(args, identity)
 }
 
 #[update]
-async fn update_draft(
-    id: u64,
-    new_title: Option<String>,
-    new_content: Option<String>,
-) -> ServiceResult<Draft> {
+async fn update_draft(id: u64, args: SaveDraftArgs) -> ServiceResult<Draft> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.update_draft(id, new_title, new_content, identity)
+    DRAFT_SERVICE.update_draft(id, args, identity)
 }
 
 #[update]
