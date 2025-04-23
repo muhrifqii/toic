@@ -40,6 +40,14 @@ pub mod mocks {
     pub fn reset_timestamp(time: u64) {
         TIMESTAMP.with(|c| c.set(time));
     }
+
+    pub fn set_caller(caller: Option<&str>) {
+        if let Some(caller) = caller {
+            CALLER.with_borrow_mut(|s| *s = caller.to_string());
+            return;
+        }
+        CALLER.with_borrow_mut(|s| *s = "2chl6-4hpzw-vqaaa-aaaaa-c".to_string());
+    }
 }
 
 #[cfg(test)]
