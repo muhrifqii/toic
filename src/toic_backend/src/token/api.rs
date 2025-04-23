@@ -661,27 +661,39 @@ fn icrc2_allowance(arg: AllowanceArgs) -> Allowance {
     let now = timestamp();
     allowance(arg.account, arg.spender, now)
 }
+
 #[cfg(test)]
 mod tests {
-    use candid::Principal;
-    use icrc_ledger_types::icrc1::{account::Account, transfer::TransferArg};
+    use candid::{Nat, Principal};
+    use icrc_ledger_types::{
+        icrc1::{
+            account::Account,
+            transfer::{TransferArg, TransferError},
+        },
+        icrc2::{allowance::AllowanceArgs, approve::ApproveArgs, transfer_from::TransferFromArgs},
+    };
 
     use crate::{
         token::{
             api::{
                 create_token, delete_token, icrc1_balance_of, icrc1_decimals, icrc1_fee,
                 icrc1_metadata, icrc1_minting_account, icrc1_name, icrc1_supported_standards,
-                icrc1_token_symbol, icrc1_total_supply, icrc1_transfer, token_created,
-                validate_created_at_time, BALANCES, TRANSACTION_LOG, TRANSACTION_WINDOW_NANOS,
+                icrc1_token_symbol, icrc1_total_supply, icrc1_transfer, icrc2_allowance,
+                icrc2_approve, icrc2_transfer_from, token_created, validate_created_at_time,
+                BALANCES, TRANSACTION_LOG, TRANSACTION_WINDOW_NANOS,
             },
             CreateTokenArgs,
         },
-        utils::mocks::{caller, reset_timestamp, timestamp},
+        utils::mocks::{caller, reset_timestamp, set_caller, timestamp},
         Tokens,
     };
 
     fn mock_principal() -> Principal {
         Principal::from_text("aaaaa-aa").unwrap()
+    }
+
+    fn mock_principal_2() -> Principal {
+        Principal::from_text("rdmx6-jaaaa-aaaaa-aaadq-cai").unwrap()
     }
 
     fn create_token_with_default_args() -> Result<String, String> {
@@ -755,8 +767,11 @@ mod tests {
     }
 
     #[test]
-    fn test_icrc1_transfer() {
+    fn test_icrc1_transfer_mint() {
         create_token_with_default_args().unwrap();
+
+        reset_timestamp(TRANSACTION_WINDOW_NANOS * 3);
+        let valid_time = Some(timestamp() - TRANSACTION_WINDOW_NANOS / 2);
 
         let to = Account {
             owner: mock_principal(),
@@ -769,11 +784,84 @@ mod tests {
             amount: 10_000_usize.into(),
             fee: None,
             memo: None,
-            created_at_time: None,
+            created_at_time: valid_time,
         };
 
-        let result = icrc1_transfer(transfer_arg);
+        let result = icrc1_transfer(transfer_arg.clone());
         assert!(result.is_ok());
+
+        // Prevent duplicate transaction
+        let result = icrc1_transfer(transfer_arg);
+        assert!(matches!(result, Err(TransferError::Duplicate { .. })));
+    }
+
+    #[test]
+    fn test_icrc1_transfer_burn() {
+        create_token_with_default_args().unwrap();
+
+        reset_timestamp(TRANSACTION_WINDOW_NANOS * 3);
+        set_caller(Some(&mock_principal().to_string()));
+
+        let to = icrc1_minting_account().unwrap();
+        let valid_time = Some(timestamp() - TRANSACTION_WINDOW_NANOS / 2);
+
+        // Burn 100 tokens failed, because the fee is 1_000
+        let transfer_arg = TransferArg {
+            from_subaccount: None,
+            to,
+            amount: 100_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: valid_time,
+        };
+        let result = icrc1_transfer(transfer_arg);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(TransferError::BadBurn { .. })));
+
+        // Burn 10_000 tokens failed, because account has not enough balance
+        let transfer_arg = TransferArg {
+            from_subaccount: None,
+            to,
+            amount: 10_000_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: valid_time,
+        };
+        let result = icrc1_transfer(transfer_arg);
+        assert!(matches!(
+            result,
+            Err(TransferError::InsufficientFunds { .. })
+        ));
+
+        // Burn 10_000 tokens success
+        set_caller(None);
+        let transfer_arg = TransferArg {
+            from_subaccount: None,
+            to: Account {
+                owner: mock_principal(),
+                subaccount: None,
+            },
+            amount: 100_000_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        };
+        icrc1_transfer(transfer_arg).unwrap();
+        set_caller(Some(&mock_principal().to_string()));
+        let transfer_arg = TransferArg {
+            from_subaccount: None,
+            to,
+            amount: 10_000_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: valid_time,
+        };
+        let result = icrc1_transfer(transfer_arg.clone());
+        assert!(result.is_ok());
+
+        // Prevent duplicate transaction
+        let result = icrc1_transfer(transfer_arg);
+        assert!(matches!(result, Err(TransferError::Duplicate { .. })));
     }
 
     #[test]
@@ -811,17 +899,6 @@ mod tests {
         assert_eq!(total_supply, expected);
     }
 
-    // #[test]
-    // fn test_validate_memo() {
-    //     let valid_memo = Memo(vec![1, 2, 3]);
-    //     let result = validate_memo(Some(&valid_memo));
-    //     assert!(result.is_ok());
-
-    //     let invalid_memo = Memo(vec![0; MAX_MEMO_SIZE + 1]);
-    //     let result = validate_memo(Some(&invalid_memo));
-    //     assert!(result.is_err());
-    // }
-
     #[test]
     fn test_validate_created_at_time() {
         reset_timestamp(TRANSACTION_WINDOW_NANOS * 3);
@@ -834,5 +911,40 @@ mod tests {
         let result = validate_created_at_time(invalid_time, now);
         assert!(result.is_err());
         reset_timestamp(0);
+    }
+
+    #[test]
+    fn test_icrc2_allowance_initial() {
+        create_token_with_default_args().unwrap();
+
+        let spender = Account {
+            owner: mock_principal(),
+            subaccount: None,
+        };
+        let creditor = Account {
+            owner: mock_principal_2(),
+            subaccount: None,
+        };
+
+        // fill the balance of the creditor
+        let fill_creditor_arg = TransferArg {
+            from_subaccount: None,
+            to: creditor,
+            amount: 100_000_usize.into(),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        };
+        icrc1_transfer(fill_creditor_arg).unwrap();
+        set_caller(Some(&mock_principal().to_string()));
+        assert!(BALANCES.with_borrow(|b| b.contains_key(&creditor)));
+
+        let allowance_result = icrc2_allowance(AllowanceArgs {
+            account: creditor,
+            spender,
+        });
+
+        assert_eq!(allowance_result.allowance, Nat::from(0_usize));
+        assert!(allowance_result.expires_at.is_none());
     }
 }
