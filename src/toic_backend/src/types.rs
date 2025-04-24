@@ -14,6 +14,9 @@ pub type BTreeMapRefCell<K, V> = RefCell<BTreeMap<K, V, VMemory>>;
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
 pub type ServiceResult<T> = Result<T, ServiceError>;
 
+pub type SupportSize = u32;
+pub type ViewSize = u32;
+
 #[derive(Error, Debug, Eq, PartialEq, Clone)]
 pub enum RepositoryError {
     #[error(r#"The requested entity was not found in the repository."#)]
@@ -22,6 +25,10 @@ pub enum RepositoryError {
     Conflict,
     #[error(r#"Invalid update operation: {reason}."#)]
     IllegalUpdate { reason: String },
+    #[error("Unsupported operation")]
+    UnsupportedOperation,
+    #[error("Illegal argument: {reason}")]
+    IllegalArgument { reason: String },
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Clone, CandidType)]
@@ -34,6 +41,8 @@ pub enum ServiceError {
     InternalError { reason: String },
     #[error("Draft not found")]
     DraftNotFound,
+    #[error("Story not found")]
+    StoryNotFound,
     #[error("Unprocessable entity: {reason}")]
     UnprocessableEntity { reason: String },
     #[error("{entity} already exists")]
@@ -47,7 +56,17 @@ pub trait AuditableEntity {
 }
 
 #[derive(
-    Debug, Clone, CandidType, Deserialize, Serialize, EnumString, PartialEq, PartialOrd, Eq, Ord,
+    Debug,
+    Clone,
+    CandidType,
+    Deserialize,
+    Serialize,
+    EnumString,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Ord,
+    Copy,
 )]
 pub enum Category {
     SciFi,
@@ -93,14 +112,43 @@ impl StoryDetail {
 }
 
 #[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
+pub struct StoryContent {
+    pub id: u64,
+    pub content: String,
+    pub author: Principal,
+}
+
+impl Storable for StoryContent {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(self, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        ciborium::from_reader(bytes.as_ref()).unwrap()
+    }
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+impl StoryContent {
+    pub fn new(id: u64, content: String, author: Principal) -> Self {
+        Self {
+            id,
+            content,
+            author,
+        }
+    }
+}
+
+#[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
 pub struct Story {
     pub id: u64,
     pub title: String,
     pub detail: StoryDetail,
-    pub content: String,
     pub author: Principal,
-    pub total_support: u32,
-    pub total_views: u32,
+    pub total_support: SupportSize,
+    pub total_views: ViewSize,
     pub created_at: u64,
     pub updated_at: Option<u64>,
     pub read_time: u32,
@@ -139,7 +187,6 @@ impl Story {
             id: 0,
             title: draft.title,
             detail,
-            content: draft.content,
             author: draft.author,
             total_support: 0,
             total_views: 0,
@@ -155,7 +202,6 @@ pub struct Draft {
     pub id: u64,
     pub title: String,
     pub detail: Option<StoryDetail>,
-    pub content: String,
     pub author: Principal,
     pub created_at: u64,
     pub updated_at: Option<u64>,
@@ -190,17 +236,11 @@ impl AuditableEntity for Draft {
 }
 
 impl Draft {
-    pub fn new(
-        title: String,
-        detail: Option<StoryDetail>,
-        content: String,
-        author: Principal,
-    ) -> Self {
+    pub fn new(title: String, detail: Option<StoryDetail>, author: Principal) -> Self {
         Self {
             id: 0,
             title,
             detail,
-            content,
             author,
             created_at: 0,
             updated_at: None,
@@ -216,6 +256,9 @@ pub struct User {
     pub bio: Option<String>,
     pub follower: u32,
     pub created_at: u64,
+    pub followed_categories: Vec<Category>,
+    pub followed_authors: Vec<Principal>,
+    pub onboarded: bool,
 }
 
 impl Storable for User {
@@ -232,15 +275,65 @@ impl Storable for User {
 }
 
 impl User {
-    pub fn new(id: Principal, created_at: u64) -> Self {
+    pub fn new(
+        id: Principal,
+        followed_categories: Vec<Category>,
+        created_at: u64,
+        onboarded: bool,
+    ) -> Self {
         Self {
             id,
             name: None,
             bio: None,
             follower: 0,
+            followed_categories,
+            followed_authors: vec![],
             created_at,
+            onboarded,
         }
     }
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct Statistics {
+    pub total_users: u32,
+    pub total_stories: u32,
+    pub total_drafts: u32,
+    pub total_categories: u32,
+    pub category_followers: Vec<(Category, u32)>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize, PartialEq, Eq)]
+pub enum SortOrder {
+    Asc(SortBy),
+    Desc(SortBy),
+}
+
+impl Default for SortOrder {
+    fn default() -> Self {
+        Self::Asc(SortBy::default())
+    }
+}
+
+impl SortOrder {
+    pub fn is_asc(&self) -> bool {
+        matches!(self, Self::Asc(_))
+    }
+
+    pub fn is_desc(&self) -> bool {
+        matches!(self, Self::Desc(_))
+    }
+
+    pub fn is_sorted_by_id(&self) -> bool {
+        matches!(self, Self::Asc(SortBy::Id) | Self::Desc(SortBy::Id))
+    }
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize, Default, PartialEq, Eq)]
+pub enum SortBy {
+    #[default]
+    Id,
+    UpdatedAt,
 }
 
 // candid Args section
