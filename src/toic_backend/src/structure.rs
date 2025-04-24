@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use ic_stable_structures::{BTreeMap, Cell, Memory, Storable};
 
 use crate::{
-    types::{AuditableEntity, RepositoryError, RepositoryResult},
+    types::{AuditableEntity, RepositoryError, RepositoryResult, SortOrder},
     utils::timestamp,
 };
 
@@ -178,5 +178,11 @@ where
     }
 
     /// Finds entities based on criteria and cursor with a limit.
-    fn find(&self, criteria: Self::Criteria, cursor: Option<Self::Cursor>, limit: usize) -> Vec<K>;
+    fn find(
+        &self,
+        criteria: Self::Criteria,
+        sort: Option<SortOrder>,
+        cursor: Option<Self::Cursor>,
+        limit: usize,
+    ) -> Vec<K>;
 }

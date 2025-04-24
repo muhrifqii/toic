@@ -31,7 +31,7 @@ async fn create_draft(args: SaveDraftArgs) -> ServiceResult<Draft> {
 }
 
 #[update]
-async fn update_draft(id: u64, args: SaveDraftArgs) -> ServiceResult<Draft> {
+async fn update_draft(id: u64, args: SaveDraftArgs) -> ServiceResult<()> {
     let identity = get_and_validate_caller()?;
 
     DRAFT_SERVICE.update_draft(id, args, identity).await
@@ -52,17 +52,17 @@ async fn delete_draft(id: u64) -> ServiceResult<()> {
 }
 
 #[query]
-fn get_draft(id: u64) -> ServiceResult<Draft> {
-    let identity = get_and_validate_caller()?;
+fn get_draft(id: u64) -> ServiceResult<(Draft, StoryContent)> {
+    get_and_validate_caller()?;
 
     DRAFT_SERVICE.get_draft(&id)
 }
 
 #[query]
-fn get_drafts(cursor: Option<u64>, limit: usize) -> ServiceResult<(Option<u64>, Vec<Draft>)> {
+fn get_drafts() -> ServiceResult<Vec<Draft>> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.get_drafts(identity, cursor, limit)
+    DRAFT_SERVICE.get_drafts(identity)
 }
 
 export_candid!();

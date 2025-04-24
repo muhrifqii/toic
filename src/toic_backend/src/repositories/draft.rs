@@ -5,12 +5,18 @@ use ic_stable_structures::{BTreeMap, Cell};
 use lazy_static::lazy_static;
 
 use crate::{
-    memory::{ET_DRAFT_MEM_ID, IDX_DRAFT_AUTHOR_MEM_ID, MEMORY_MANAGER, SERIAL_DRAFT_MEM_ID},
+    memory::{
+        ET_DRAFT_CONTENT_MEM_ID, ET_DRAFT_MEM_ID, IDX_DRAFT_AUTHOR_MEM_ID, MEMORY_MANAGER,
+        SERIAL_DRAFT_MEM_ID,
+    },
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexRepository, IndexableRepository,
-        SerialIdRepository,
+        Repository, SerialIdRepository,
     },
-    types::{BTreeMapRefCell, Draft, RepositoryResult, SerialRefCell, VMemory},
+    types::{
+        BTreeMapRefCell, Draft, RepositoryError, RepositoryResult, SerialRefCell, SortOrder,
+        StoryContent, VMemory,
+    },
 };
 
 thread_local! {
@@ -26,6 +32,13 @@ thread_local! {
         )
     );
 
+
+    static DRAFT_CONTENT: BTreeMapRefCell<u64, StoryContent> = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(ET_DRAFT_CONTENT_MEM_ID))
+        )
+    );
+
     static DRAFT_INDEX: BTreeMapRefCell<(Principal, u64), ()> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_DRAFT_AUTHOR_MEM_ID))
@@ -35,6 +48,8 @@ thread_local! {
 
 lazy_static! {
     pub static ref DRAFT_REPOSITORY: Arc<DraftRepository> = Arc::new(DraftRepository::default());
+    pub static ref DRAFT_CONTENT_REPOSITORY: Arc<DraftContentRepository> =
+        Arc::new(DraftContentRepository::default());
 }
 
 #[derive(Debug, Default)]
@@ -54,23 +69,46 @@ impl IndexRepository<(Principal, u64), u64, VMemory> for DraftAuthorIndexReposit
     fn find(
         &self,
         criteria: Self::Criteria,
-        cursor: Option<Self::Cursor>,
-        limit: usize,
+        _: Option<SortOrder>,
+        _: Option<Self::Cursor>,
+        _: usize,
     ) -> Vec<u64> {
-        let since_id = cursor.map_or(1, |c| c.saturating_add(1));
-        let start = (criteria, since_id);
+        let start = (criteria, 1);
         let end = (criteria, u64::MAX);
+        // always return in descending order with no cursor/sort/limit supports
+        DRAFT_INDEX.with_borrow(|m| m.range(start..=end).map(|((_, k), _)| k).rev().collect())
+    }
+}
 
-        if limit == usize::default() {
-            DRAFT_INDEX.with_borrow(|m| m.range(start..=end).map(|((_, k), _)| k).collect())
-        } else {
-            DRAFT_INDEX.with_borrow(|m| {
-                m.range(start..=end)
-                    .take(limit)
-                    .map(|((_, k), _)| k)
-                    .collect()
-            })
+#[derive(Debug, Default)]
+pub struct DraftContentRepository;
+
+impl BinaryTreeRepository<u64, StoryContent, VMemory> for DraftContentRepository {
+    fn with_ref<F, R>(f: F) -> R
+    where
+        F: FnOnce(&RefCell<BTreeMap<u64, StoryContent, VMemory>>) -> R,
+    {
+        DRAFT_CONTENT.with(f)
+    }
+}
+
+impl Repository<u64, StoryContent, VMemory> for DraftContentRepository {
+    fn insert(&self, value: StoryContent) -> RepositoryResult<StoryContent> {
+        if Self::with_ref(|cell| cell.borrow().contains_key(&value.id)) {
+            return Err(RepositoryError::Conflict);
         }
+
+        Self::with_ref(|cell| cell.borrow_mut().insert(value.id, value.clone()));
+        Ok(value)
+    }
+
+    fn update(&self, value: StoryContent) -> RepositoryResult<StoryContent> {
+        if Self::with_ref(|cell| !cell.borrow().contains_key(&value.id)) {
+            return Err(RepositoryError::NotFound);
+        }
+
+        Self::with_ref(|cell| cell.borrow_mut().insert(value.id, value.clone()));
+        Ok(value)
     }
 }
 
@@ -114,13 +152,8 @@ impl IndexableRepository<Draft> for DraftRepository {
 }
 
 impl DraftRepository {
-    pub fn get_drafts_by_author(
-        &self,
-        author: Principal,
-        cursor: Option<u64>,
-        limit: usize,
-    ) -> RepositoryResult<Vec<Draft>> {
-        let draft_ids = self.author_index.find(author, cursor, limit);
+    pub fn get_drafts_by_author(&self, author: Principal) -> RepositoryResult<Vec<Draft>> {
+        let draft_ids = self.author_index.find(author, None, None, 0);
 
         let drafts = draft_ids
             .into_iter()
