@@ -1,12 +1,12 @@
 use candid::Principal;
 use ic_stable_structures::{BTreeMap, Cell};
 use lazy_static::lazy_static;
-use std::{cell::RefCell, cmp::Reverse, sync::Arc, u64};
+use std::{cell::RefCell, cmp::Reverse, hash::DefaultHasher, sync::Arc, u64};
 
 use crate::{
     memory::{
         ET_STORY_CONTENT_MEM_ID, ET_STORY_MEM_ID, IDX_STORY_AUTHOR_MEM_ID,
-        IDX_STORY_CATEGORY_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID,
+        IDX_STORY_CATEGORY_MEM_ID, IDX_STORY_SUPPORTER_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID,
     },
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexRepository, IndexableRepository,
@@ -46,6 +46,13 @@ thread_local! {
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_AUTHOR_MEM_ID))
         )
     );
+
+    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, Principal), SupportSize> = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_SUPPORTER_MEM_ID))
+        )
+    );
+
 }
 
 lazy_static! {
@@ -158,6 +165,7 @@ impl Repository<u64, StoryContent, VMemory> for StoryContentRepository {
 pub struct StoryRepository {
     category_index: StoryCategoryIndexRepository,
     author_index: StoryAuthorIndexRepository,
+    supporter: StorySupporterRepository,
 }
 
 impl SerialIdRepository<VMemory> for StoryRepository {
@@ -178,7 +186,19 @@ impl BinaryTreeRepository<u64, Story, VMemory> for StoryRepository {
     }
 }
 
-impl AuditableRepository<Story, VMemory> for StoryRepository {}
+impl AuditableRepository<Story, VMemory> for StoryRepository {
+    // override to handle sub repository
+    fn delete(&self, id: &u64) -> RepositoryResult<u64> {
+        let old = Self::with_ref(|cell| cell.borrow_mut().remove(id));
+        if let Some(old_value) = old {
+            self.remove_indexes(&old_value);
+            self.supporter.remove_story_supporter(id.clone());
+            Ok(id.clone())
+        } else {
+            Err(RepositoryError::NotFound)
+        }
+    }
+}
 
 impl IndexableRepository<Story> for StoryRepository {
     fn remove_indexes(&self, value: &Story) {
@@ -254,5 +274,98 @@ impl StoryRepository {
         }
 
         Ok(stories)
+    }
+
+    pub fn get_story_supporters(&self, id: u64) -> RepositoryResult<Vec<(Principal, SupportSize)>> {
+        if !self.exists(&id) {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(self.supporter.get_story_supporters(id))
+    }
+
+    pub fn get_story_supporter_size(
+        &self,
+        id: u64,
+        user: Principal,
+    ) -> RepositoryResult<Option<SupportSize>> {
+        if !self.exists(&id) {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(self.supporter.get_story_supporter_size(id, user))
+    }
+
+    pub fn remove_support(&self, id: u64, user: Principal) -> RepositoryResult<u64> {
+        if !self.exists(&id) {
+            return Err(RepositoryError::NotFound);
+        }
+        self.supporter.remove_support(id, user)
+    }
+    pub fn support_story(
+        &self,
+        id: u64,
+        user: Principal,
+        size: SupportSize,
+    ) -> RepositoryResult<SupportSize> {
+        if !self.exists(&id) {
+            return Err(RepositoryError::NotFound);
+        }
+        self.supporter.support_story(id, user, size)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StorySupporterRepository;
+
+impl StorySupporterRepository {
+    fn find(&self, criteria: (u64, Option<Principal>)) -> Vec<(Principal, SupportSize)> {
+        let (story_id, supporter_opt) = criteria;
+        let range = if let Some(supporter) = supporter_opt {
+            (story_id, supporter)..=(story_id, supporter)
+        } else {
+            (story_id, Principal::from_slice(&[0]))..=(story_id, Principal::from_slice(&[255; 29]))
+        };
+        STORY_SUPPORTER_INDEX.with_borrow(|m| m.range(range).map(|((_, p), v)| (p, v)).collect())
+    }
+
+    fn get_story_supporters(&self, id: u64) -> Vec<(Principal, SupportSize)> {
+        self.find((id, None))
+    }
+
+    fn get_story_supporter_size(&self, id: u64, user: Principal) -> Option<SupportSize> {
+        STORY_SUPPORTER_INDEX.with_borrow(|m| m.get(&(id, user)))
+    }
+
+    fn support_story(
+        &self,
+        id: u64,
+        user: Principal,
+        size: SupportSize,
+    ) -> RepositoryResult<SupportSize> {
+        if size == 0 {
+            return Err(RepositoryError::IllegalArgument {
+                reason: "Support size must be greater than 0".to_string(),
+            });
+        }
+
+        STORY_SUPPORTER_INDEX.with_borrow_mut(|m| m.insert((id, user), size));
+        Ok(size)
+    }
+
+    fn remove_support(&self, id: u64, user: Principal) -> RepositoryResult<u64> {
+        let old = STORY_SUPPORTER_INDEX.with_borrow_mut(|m| m.remove(&(id, user)));
+        if old.is_some() {
+            Ok(id)
+        } else {
+            Err(RepositoryError::NotFound)
+        }
+    }
+
+    fn remove_story_supporter(&self, id: u64) {
+        let supporters = self.find((id, None));
+        STORY_SUPPORTER_INDEX.with_borrow_mut(|m| {
+            for (user, _) in supporters {
+                m.remove(&(id, user));
+            }
+        });
     }
 }
