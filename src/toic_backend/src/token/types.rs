@@ -15,7 +15,7 @@ use icrc_ledger_types::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::types::VMemory;
+use crate::memory::VMemory;
 
 pub type ConfigRefCell = RefCell<Cell<Configuration, VMemory>>;
 pub type TransactionLog = ic_stable_structures::Vec<StorableTransaction, VMemory>;

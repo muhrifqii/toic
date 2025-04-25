@@ -1,6 +1,6 @@
 // https://github.com/dfinity/examples/blob/master/rust/tokenmania/backend/lib.rs
 
-use std::cell::RefCell;
+use std::{cell::RefCell, sync::Arc};
 
 #[cfg(any(not(test), rust_analyzer))]
 use ic_cdk::api::caller;
@@ -19,6 +19,7 @@ pub use icrc_ledger_types::{
     },
     icrc3::transactions::{Approve, Burn, Mint, Transaction, Transfer},
 };
+use lazy_static::lazy_static;
 
 use crate::memory::{
     MEMORY_MANAGER, TOKEN_ACCOUNT_BALANCE_MEM_ID, TOKEN_CONFIG_MEM_ID, TOKEN_TX_LOG_MEM_ID,
@@ -41,6 +42,7 @@ const TRANSACTION_WINDOW_NANOS: u64 = 24 * 60 * 60 * 1_000_000_000;
 
 // Error codes
 const MEMO_TOO_LONG_ERROR_CODE: usize = 0;
+const SELF_TRANSFER_ERROR_CODE: usize = 1;
 
 thread_local! {
     static CONFIG: ConfigRefCell = RefCell::new(
@@ -61,6 +63,23 @@ thread_local! {
             MEMORY_MANAGER.with_borrow(|m| m.get(TOKEN_ACCOUNT_BALANCE_MEM_ID))
         )
     );
+}
+
+lazy_static! {
+    pub static ref LEDGER_SERVICE: Arc<LedgerService> = Arc::new(LedgerService::default());
+}
+
+#[derive(Debug, Default)]
+pub struct LedgerService;
+
+impl LedgerService {
+    pub fn transfer(&self, arg: TransferArg) -> Result<BlockIndex, TransferError> {
+        icrc1_transfer(arg)
+    }
+
+    pub fn balance_of(&self, account: Account) -> Tokens {
+        icrc1_balance_of(account)
+    }
 }
 
 /// Calculates the total supply of tokens by traversing the transaction log.
@@ -252,6 +271,16 @@ fn validate_memo(memo: Option<&Memo>) -> Result<(), TransferError> {
     Ok(())
 }
 
+fn validate_account(from: Account, to: Option<Account>) -> Result<(), TransferError> {
+    if Some(from) == to {
+        return Err(TransferError::GenericError {
+            error_code: SELF_TRANSFER_ERROR_CODE.into(),
+            message: "Cannot transfer to the same account".to_string(),
+        });
+    }
+    Ok(())
+}
+
 /// records the validated transaction into the transaction log
 fn record_valid_transaction(tx: &StorableTransaction) -> BlockIndex {
     let block_index = TRANSACTION_LOG.with_borrow_mut(|log| {
@@ -424,6 +453,7 @@ fn map_tx(tx: TxInfo, now: u64) -> Result<StorableTransaction, TransferError> {
 
 /// Runs validity checks and records the transaction followed by updating balance cahches if it is valid
 fn apply_tx(tx: TxInfo) -> Result<BlockIndex, TransferError> {
+    validate_account(tx.from, tx.to)?;
     validate_memo(tx.memo.as_ref())?;
     let now = timestamp();
     validate_created_at_time(tx.created_at_time, now)?;
