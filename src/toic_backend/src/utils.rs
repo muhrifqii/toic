@@ -37,6 +37,13 @@ pub mod mocks {
         Principal::from_text(CALLER.with_borrow(|s| s.clone()).as_str()).unwrap()
     }
 
+    pub fn is_controller(principal: &Principal) -> bool {
+        if principal == &Principal::from_text("2chl6-4hpzw-vqaaa-aaaaa-c").unwrap() {
+            return true;
+        }
+        false
+    }
+
     pub fn reset_timestamp(time: u64) {
         TIMESTAMP.with(|c| c.set(time));
     }

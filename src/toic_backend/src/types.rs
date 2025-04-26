@@ -7,6 +7,7 @@ use strum::EnumString;
 use thiserror::Error;
 
 pub use crate::memory::VMemory;
+use crate::token::Tokens;
 
 pub type SerialRefCell = RefCell<Cell<u64, VMemory>>;
 pub type BTreeMapRefCell<K, V> = RefCell<BTreeMap<K, V, VMemory>>;
@@ -47,6 +48,8 @@ pub enum ServiceError {
     UnprocessableEntity { reason: String },
     #[error("{entity} already exists")]
     Conflict { entity: String },
+    #[error("transfer failed: {reason}")]
+    TransferError { reason: String },
 }
 
 pub trait AuditableEntity {
@@ -149,6 +152,7 @@ pub struct Story {
     pub author: Principal,
     pub total_support: SupportSize,
     pub total_views: ViewSize,
+    pub total_tip_support: Tokens,
     pub created_at: u64,
     pub updated_at: Option<u64>,
     pub read_time: u32,
@@ -190,6 +194,7 @@ impl Story {
             author: draft.author,
             total_support: 0,
             total_views: 0,
+            total_tip_support: 0_usize.into(),
             created_at: 0,
             updated_at: None,
             read_time: draft.read_time,
@@ -275,21 +280,16 @@ impl Storable for User {
 }
 
 impl User {
-    pub fn new(
-        id: Principal,
-        followed_categories: Vec<Category>,
-        created_at: u64,
-        onboarded: bool,
-    ) -> Self {
+    pub fn new(id: Principal, created_at: u64) -> Self {
         Self {
             id,
             name: None,
             bio: None,
             follower: 0,
-            followed_categories,
+            followed_categories: vec![],
             followed_authors: vec![],
             created_at,
-            onboarded,
+            onboarded: false,
         }
     }
 }
@@ -343,4 +343,11 @@ pub struct SaveDraftArgs {
     pub title: Option<String>,
     pub content: Option<String>,
     pub detail: Option<StoryDetail>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize, Default)]
+pub struct StoryInteractionArgs {
+    pub id: u64,
+    pub support: Option<SupportSize>,
+    pub tip: Option<Tokens>,
 }

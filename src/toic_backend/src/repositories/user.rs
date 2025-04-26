@@ -20,7 +20,7 @@ thread_local! {
 }
 
 lazy_static! {
-    pub static ref ACCOUNT_REPOSITORY: Arc<UserRepository> = Arc::new(UserRepository::default());
+    pub static ref USER_REPOSITORY: Arc<UserRepository> = Arc::new(UserRepository::default());
 }
 
 #[derive(Debug, Default)]

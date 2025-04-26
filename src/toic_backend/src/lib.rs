@@ -1,6 +1,6 @@
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
-use services::draft::DRAFT_SERVICE;
+use services::{draft::DRAFT_SERVICE, story::STORY_SERVICE};
 
 mod memory;
 mod repositories;
@@ -63,6 +63,13 @@ fn get_drafts() -> ServiceResult<Vec<Draft>> {
     let identity = get_and_validate_caller()?;
 
     DRAFT_SERVICE.get_drafts(identity)
+}
+
+#[query]
+fn get_story(id: u64) -> ServiceResult<(Story, StoryContent)> {
+    get_and_validate_caller()?;
+
+    STORY_SERVICE.get_story(&id)
 }
 
 export_candid!();

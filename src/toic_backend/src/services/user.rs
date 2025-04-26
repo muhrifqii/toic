@@ -1,37 +1,41 @@
 use std::sync::Arc;
 
 use candid::Principal;
+use lazy_static::lazy_static;
 
 use crate::{
-    repositories::user::UserRepository,
+    repositories::user::{UserRepository, USER_REPOSITORY},
     structure::{BinaryTreeRepository, Repository},
-    types::{Category, ServiceError, ServiceResult, User},
+    types::{Category, RepositoryError, ServiceError, ServiceResult, User},
 };
 
-pub struct AccountService {
-    account_repository: Arc<UserRepository>,
+lazy_static! {
+    pub static ref USER_SERVICE: Arc<UserService> =
+        Arc::new(UserService::new(USER_REPOSITORY.clone()));
 }
 
-impl AccountService {
-    pub fn new(account_repository: Arc<UserRepository>) -> Self {
-        Self { account_repository }
+pub struct UserService {
+    user_repository: Arc<UserRepository>,
+}
+
+impl UserService {
+    pub fn new(user_repository: Arc<UserRepository>) -> Self {
+        Self { user_repository }
     }
 
-    // pub fn register_account(&self, identity: Principal, timestamp: u64) -> ServiceResult<Account> {
-    //     if self.account_repository.exists(&identity) {
-    //         return Err(ServiceError::Conflict {
-    //             entity: "".to_string(),
-    //         });
-    //     }
+    pub fn register(&self, identity: Principal, created_at: u64) -> ServiceResult<User> {
+        if self.user_repository.exists(&identity) {
+            return Err(ServiceError::Conflict {
+                entity: "User already exists.".to_string(),
+            });
+        }
+        let user = User::new(identity, created_at);
+        let user = self.user_repository.insert(user).map_err(map_user_err)?;
+        Ok(user)
+    }
 
-    //     let account = Account::new(identity, timestamp);
-    //     self.account_repository
-    //         .insert(account)
-    //         .map_err(|e| ServiceError::Conflict { reason: e })
-    // }
-
-    pub fn get_account(&self, identity: Principal) -> ServiceResult<User> {
-        self.account_repository
+    pub fn get_user(&self, identity: Principal) -> ServiceResult<User> {
+        self.user_repository
             .get(&identity)
             .ok_or(ServiceError::IdentityNotFound {
                 identity: identity.to_string(),
@@ -50,7 +54,7 @@ impl AccountService {
         }
 
         let mut user =
-            self.account_repository
+            self.user_repository
                 .get(&identity)
                 .ok_or(ServiceError::IdentityNotFound {
                     identity: identity.to_string(),
@@ -62,11 +66,24 @@ impl AccountService {
         }
         user.followed_categories = selected_categories;
         user.onboarded = true;
-        self.account_repository
-            .update(user)
-            .map_err(|e| ServiceError::InternalError {
-                reason: e.to_string(),
-            })?;
+        self.user_repository.update(user).map_err(map_user_err)?;
         Ok(())
+    }
+}
+
+fn map_user_err(e: RepositoryError) -> ServiceError {
+    match e {
+        RepositoryError::NotFound => ServiceError::IdentityNotFound {
+            identity: "User not found.".to_string(),
+        },
+        RepositoryError::Conflict => ServiceError::Conflict {
+            entity: "User".to_string(),
+        },
+        RepositoryError::IllegalArgument { reason } => ServiceError::UnprocessableEntity {
+            reason: reason.to_string(),
+        },
+        _ => ServiceError::InternalError {
+            reason: format!("{:?}", e),
+        },
     }
 }
