@@ -1,7 +1,7 @@
 use candid::Principal;
 use ic_stable_structures::{BTreeMap, Cell};
 use lazy_static::lazy_static;
-use std::{cell::RefCell, cmp::Reverse, hash::DefaultHasher, sync::Arc, u64};
+use std::{cell::RefCell, cmp::Reverse, sync::Arc, u64};
 
 use crate::{
     memory::{
@@ -12,6 +12,7 @@ use crate::{
         AuditableRepository, BinaryTreeRepository, IndexRepository, IndexableRepository,
         Repository, SerialIdRepository,
     },
+    token::{self, StorableToken, Tokens},
     types::{
         BTreeMapRefCell, Category, RepositoryError, RepositoryResult, SerialRefCell, SortBy,
         SortOrder, Story, StoryContent, SupportSize, VMemory,
@@ -47,7 +48,7 @@ thread_local! {
         )
     );
 
-    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, Principal), SupportSize> = RefCell::new(
+    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, Principal), (SupportSize, StorableToken)> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_SUPPORTER_MEM_ID))
         )
@@ -276,7 +277,10 @@ impl StoryRepository {
         Ok(stories)
     }
 
-    pub fn get_story_supporters(&self, id: u64) -> RepositoryResult<Vec<(Principal, SupportSize)>> {
+    pub fn get_story_supporters(
+        &self,
+        id: u64,
+    ) -> RepositoryResult<Vec<(Principal, SupportSize, Tokens)>> {
         if !self.exists(&id) {
             return Err(RepositoryError::NotFound);
         }
@@ -287,29 +291,31 @@ impl StoryRepository {
         &self,
         id: u64,
         user: Principal,
-    ) -> RepositoryResult<Option<SupportSize>> {
+    ) -> RepositoryResult<Option<(SupportSize, Tokens)>> {
         if !self.exists(&id) {
             return Err(RepositoryError::NotFound);
         }
         Ok(self.supporter.get_story_supporter_size(id, user))
     }
 
-    pub fn remove_support(&self, id: u64, user: Principal) -> RepositoryResult<u64> {
+    pub fn remove_story_support(&self, id: u64, user: Principal) -> RepositoryResult<u64> {
         if !self.exists(&id) {
             return Err(RepositoryError::NotFound);
         }
         self.supporter.remove_support(id, user)
     }
+
     pub fn support_story(
         &self,
         id: u64,
         user: Principal,
         size: SupportSize,
+        tokens: Tokens,
     ) -> RepositoryResult<SupportSize> {
         if !self.exists(&id) {
             return Err(RepositoryError::NotFound);
         }
-        self.supporter.support_story(id, user, size)
+        self.supporter.support_story(id, user, size, tokens)
     }
 }
 
@@ -317,22 +323,23 @@ impl StoryRepository {
 pub struct StorySupporterRepository;
 
 impl StorySupporterRepository {
-    fn find(&self, criteria: (u64, Option<Principal>)) -> Vec<(Principal, SupportSize)> {
+    fn find(&self, criteria: (u64, Option<Principal>)) -> Vec<(Principal, SupportSize, Tokens)> {
         let (story_id, supporter_opt) = criteria;
         let range = if let Some(supporter) = supporter_opt {
             (story_id, supporter)..=(story_id, supporter)
         } else {
             (story_id, Principal::from_slice(&[0]))..=(story_id, Principal::from_slice(&[255; 29]))
         };
-        STORY_SUPPORTER_INDEX.with_borrow(|m| m.range(range).map(|((_, p), v)| (p, v)).collect())
+        STORY_SUPPORTER_INDEX
+            .with_borrow(|m| m.range(range).map(|((_, p), (v, t))| (p, v, t.0)).collect())
     }
 
-    fn get_story_supporters(&self, id: u64) -> Vec<(Principal, SupportSize)> {
+    fn get_story_supporters(&self, id: u64) -> Vec<(Principal, SupportSize, Tokens)> {
         self.find((id, None))
     }
 
-    fn get_story_supporter_size(&self, id: u64, user: Principal) -> Option<SupportSize> {
-        STORY_SUPPORTER_INDEX.with_borrow(|m| m.get(&(id, user)))
+    fn get_story_supporter_size(&self, id: u64, user: Principal) -> Option<(SupportSize, Tokens)> {
+        STORY_SUPPORTER_INDEX.with_borrow(|m| m.get(&(id, user)).map(|(v, t)| (v, t.0)))
     }
 
     fn support_story(
@@ -340,6 +347,7 @@ impl StorySupporterRepository {
         id: u64,
         user: Principal,
         size: SupportSize,
+        tokens: Tokens,
     ) -> RepositoryResult<SupportSize> {
         if size == 0 {
             return Err(RepositoryError::IllegalArgument {
@@ -347,7 +355,8 @@ impl StorySupporterRepository {
             });
         }
 
-        STORY_SUPPORTER_INDEX.with_borrow_mut(|m| m.insert((id, user), size));
+        STORY_SUPPORTER_INDEX
+            .with_borrow_mut(|m| m.insert((id, user), (size, StorableToken(tokens))));
         Ok(size)
     }
 
@@ -363,7 +372,7 @@ impl StorySupporterRepository {
     fn remove_story_supporter(&self, id: u64) {
         let supporters = self.find((id, None));
         STORY_SUPPORTER_INDEX.with_borrow_mut(|m| {
-            for (user, _) in supporters {
+            for (user, _, _) in supporters {
                 m.remove(&(id, user));
             }
         });
