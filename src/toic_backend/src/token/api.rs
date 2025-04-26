@@ -3,7 +3,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 #[cfg(any(not(test), rust_analyzer))]
-use ic_cdk::api::caller;
+use ic_cdk::api::{caller, is_controller};
 use ic_cdk::{query, update};
 use ic_stable_structures::{BTreeMap, Cell};
 pub use icrc_ledger_types::{
@@ -28,13 +28,13 @@ use crate::memory::{
 use crate::utils::timestamp;
 
 use super::{
-    to_approve_error, to_transfer_from_error, AccountBalanceRefCell, ConfigRefCell, Configuration,
-    CreateTokenArgs, StorableToken, StorableTransaction, SupportedStandard, Tokens, TransactionLog,
-    TransactionLogRefCell, TxInfo,
+    constant::TOKEN_DATA_IMAGE, to_approve_error, to_transfer_from_error, AccountBalanceRefCell,
+    ConfigRefCell, Configuration, CreateTokenArgs, StorableToken, StorableTransaction,
+    SupportedStandard, Tokens, TransactionLog, TransactionLogRefCell, TxInfo,
 };
 
 #[cfg(all(test, not(rust_analyzer)))]
-use crate::utils::mocks::{caller, timestamp};
+use crate::utils::mocks::{caller, is_controller, timestamp};
 
 const MAX_MEMO_SIZE: usize = 32;
 const PERMITTED_DRIFT_NANOS: u64 = 60_000_000_000;
@@ -464,13 +464,30 @@ fn apply_tx(tx: TxInfo) -> Result<BlockIndex, TransferError> {
 }
 
 #[update]
-fn create_token(args: CreateTokenArgs) -> Result<String, String> {
+fn create_token(args: Option<CreateTokenArgs>) -> Result<String, String> {
+    let caller = caller();
+    if !is_controller(&caller) {
+        return Err("Unauthorized operation".to_string());
+    }
+
     if token_created() {
         return Err("Token already created".to_string());
     }
 
+    let args = if args.is_none() {
+        CreateTokenArgs {
+            token_name: "TOIC".to_string(),
+            token_symbol: "TOIC".to_string(),
+            token_logo: TOKEN_DATA_IMAGE.to_string(),
+            initial_supply: 5_000_000_000_usize.into(),
+            transfer_fee: 10_usize.into(),
+        }
+    } else {
+        args.unwrap()
+    };
+
     let minting_account = Account {
-        owner: caller(),
+        owner: caller,
         subaccount: None,
     };
     let init_tx = StorableTransaction(Transaction::mint(
@@ -489,7 +506,7 @@ fn create_token(args: CreateTokenArgs) -> Result<String, String> {
                 token_name: args.token_name,
                 token_symbol: args.token_symbol,
                 token_logo: args.token_logo,
-                transfer_fee: 1_000_usize.into(),
+                transfer_fee: args.transfer_fee,
                 decimals: 8,
                 minting_account: Some(minting_account),
                 token_created: true,
@@ -506,12 +523,16 @@ fn token_created() -> bool {
 
 #[update]
 fn delete_token() -> Result<String, String> {
+    let caller = caller();
+    if !is_controller(&caller) {
+        return Err("Unauthorized operation".to_string());
+    }
+
     if !token_created() {
         return Err("Token not created".to_string());
     };
 
-    if caller() != CONFIG.with_borrow(|config| config.get().minting_account.clone().unwrap().owner)
-    {
+    if caller != CONFIG.with_borrow(|config| config.get().minting_account.clone().unwrap().owner) {
         return Err("Caller is not the token creator".to_string());
     };
 
@@ -732,8 +753,9 @@ mod tests {
             token_symbol: "TT".to_string(),
             token_logo: "logo".to_string(),
             initial_supply: 1_000_000_000_usize.into(),
+            transfer_fee: 1_000_usize.into(),
         };
-        create_token(args)
+        create_token(Some(args))
     }
 
     #[test]

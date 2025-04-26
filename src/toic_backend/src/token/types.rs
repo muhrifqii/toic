@@ -110,6 +110,7 @@ pub struct CreateTokenArgs {
     pub token_symbol: String,
     pub initial_supply: Nat,
     pub token_logo: String,
+    pub transfer_fee: Nat,
 }
 
 /// ICRC-2 standard approval error
