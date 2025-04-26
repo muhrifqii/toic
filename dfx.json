@@ -25,15 +25,17 @@
     "toic_backend": {
       "candid": "src/toic_backend/toic_backend.did",
       "package": "toic_backend",
-      "type": "rust"
+      "type": "rust",
+      "shrink": true,
+      "gzip": true,
+      "build": [
+        "cargo build --target wasm32-unknown-unknown --release -p backend",
+        "candid-extractor target/wasm32-unknown-unknown/release/backend.wasm > src/toic_backend/toic_backend.did"
+      ]
     },
     "toic_frontend": {
-      "dependencies": [
-        "toic_backend"
-      ],
-      "source": [
-        "src/toic_frontend/dist"
-      ],
+      "dependencies": ["toic_backend"],
+      "source": ["src/toic_frontend/dist"],
       "type": "assets",
       "workspace": "toic_frontend"
     }
