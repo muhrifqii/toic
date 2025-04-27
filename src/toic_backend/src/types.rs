@@ -49,8 +49,10 @@ pub enum ServiceError {
     UnprocessableEntity { reason: String },
     #[error("{entity} already exists")]
     Conflict { entity: String },
-    #[error("transfer failed: {reason}")]
+    #[error("Transfer failed: {reason}")]
     TransferError { reason: String },
+    #[error("{0}")]
+    AiModelError(String),
 }
 
 pub trait AuditableEntity {

@@ -1,4 +1,4 @@
-use std::{sync::Arc, u128};
+use std::sync::Arc;
 
 use candid::{Nat, Principal};
 use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
@@ -22,7 +22,10 @@ use crate::{
     },
 };
 
-use super::user::{self, UserService};
+use super::{
+    llm::{expand_paragraph, write_story_description},
+    user::{self, UserService},
+};
 
 pub const MAX_STORY_SUPPORT_GIVEN: SupportSize = 10;
 
@@ -184,6 +187,28 @@ impl StoryService {
             .map_err(map_story_err)?;
         let supporters = supporters.iter().map(|(s, _, _)| *s).collect();
         Ok(supporters)
+    }
+
+    pub async fn assist_expand_writing(&self, id: &u64) -> ServiceResult<String> {
+        let content = self
+            .story_content_repository
+            .get(id)
+            .ok_or(ServiceError::StoryNotFound)?;
+        let expansion = expand_paragraph(content.content)
+            .await
+            .map_err(|e| ServiceError::AiModelError(e))?;
+        Ok(expansion)
+    }
+
+    pub async fn assist_story_description(&self, id: &u64) -> ServiceResult<String> {
+        let content = self
+            .story_content_repository
+            .get(id)
+            .ok_or(ServiceError::StoryNotFound)?;
+        let description = write_story_description(content.content)
+            .await
+            .map_err(|e| ServiceError::AiModelError(e))?;
+        Ok(description)
     }
 }
 
