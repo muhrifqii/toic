@@ -1,20 +1,22 @@
 use candid::Principal;
 use ic_stable_structures::{BTreeMap, Cell};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::{cell::RefCell, cmp::Reverse, sync::Arc, u64};
 
 use crate::{
     memory::{
         ET_STORY_CONTENT_MEM_ID, ET_STORY_MEM_ID, IDX_STORY_AUTHOR_MEM_ID,
-        IDX_STORY_CATEGORY_MEM_ID, IDX_STORY_SUPPORTER_MEM_ID, MEMORY_MANAGER, SERIAL_STORY_MEM_ID,
+        IDX_STORY_CATEGORY_MEM_ID, IDX_STORY_SCORING_MEM_ID, IDX_STORY_SUPPORTER_MEM_ID,
+        MEMORY_MANAGER, SERIAL_STORY_MEM_ID,
     },
     structure::{
         AuditableRepository, BinaryTreeRepository, IndexRepository, IndexableRepository,
         Repository, SerialIdRepository,
     },
-    token::{self, StorableToken, Tokens},
+    token::{StorableToken, Tokens},
     types::{
-        BTreeMapRefCell, Category, RepositoryError, RepositoryResult, SerialRefCell, SortBy,
+        BTreeMapRefCell, Category, RepositoryError, RepositoryResult, Score, SerialRefCell,
         SortOrder, Story, StoryContent, SupportSize, VMemory,
     },
 };
@@ -54,12 +56,51 @@ thread_local! {
         )
     );
 
+    static STORY_SCORING_SORT_INDEX: BTreeMapRefCell<(Score, u64), ()> = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_SCORING_MEM_ID))
+        )
+    );
+
 }
 
 lazy_static! {
     pub static ref STORY_REPOSITORY: Arc<StoryRepository> = Arc::new(StoryRepository::default());
     pub static ref STORY_CONTENT_REPOSITORY: Arc<StoryContentRepository> =
         Arc::new(StoryContentRepository::default());
+}
+
+#[derive(Debug, Default)]
+pub struct StoryScoringSortIndexRepository;
+
+// (Reverse<Scoring>, StoryId)
+impl IndexRepository<(Score, u64), u64, VMemory> for StoryScoringSortIndexRepository {
+    type Criteria = ();
+    type Cursor = (Score, u64); // (score, story_id)
+
+    fn with_ref<F, R>(f: F) -> R
+    where
+        F: FnOnce(&RefCell<BTreeMap<(Score, u64), (), VMemory>>) -> R,
+    {
+        STORY_SCORING_SORT_INDEX.with(f)
+    }
+
+    fn find(
+        &self,
+        _: Self::Criteria,
+        _: Option<SortOrder>,
+        cursor: Option<Self::Cursor>,
+        limit: usize,
+    ) -> Vec<u64> {
+        let end = cursor.unwrap_or((u64::MAX, u64::MAX));
+        STORY_SCORING_SORT_INDEX.with_borrow(|m| {
+            m.range(..end)
+                .rev()
+                .take(limit)
+                .map(|((_, k), _)| k)
+                .collect()
+        })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -166,6 +207,7 @@ impl Repository<u64, StoryContent, VMemory> for StoryContentRepository {
 pub struct StoryRepository {
     category_index: StoryCategoryIndexRepository,
     author_index: StoryAuthorIndexRepository,
+    scoring_index: StoryScoringSortIndexRepository,
     supporter: StorySupporterRepository,
 }
 
@@ -206,17 +248,20 @@ impl IndexableRepository<Story> for StoryRepository {
         self.category_index
             .remove(&(value.detail.category, Reverse(value.id)));
         self.author_index.remove(&(value.author, Reverse(value.id)));
+        self.scoring_index.remove(&(value.score, value.id));
     }
 
     fn add_indexes(&self, value: &Story) {
         self.category_index
             .insert((value.detail.category, Reverse(value.id)));
         self.author_index.insert((value.author, Reverse(value.id)));
+        self.scoring_index.insert((value.score, value.id));
     }
 
     fn clear_indexes(&self) {
         self.category_index.clear();
         self.author_index.clear();
+        self.scoring_index.clear();
     }
 }
 
@@ -273,6 +318,21 @@ impl StoryRepository {
                 .collect::<Vec<_>>();
             stories.append(&mut category_stories);
         }
+
+        Ok(stories)
+    }
+
+    pub fn get_stories_by_score(
+        &self,
+        cursor: Option<(Score, u64)>,
+        limit: usize,
+    ) -> RepositoryResult<Vec<Story>> {
+        let stories = self
+            .scoring_index
+            .find((), None, cursor, limit)
+            .into_iter()
+            .filter_map(|id| self.get(&id))
+            .collect_vec();
 
         Ok(stories)
     }
