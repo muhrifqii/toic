@@ -157,6 +157,19 @@ async fn complete_onboarding(args: OnboardingArgs) -> ServiceResult<()> {
 
     USER_SERVICE.complete_onboarding(identity, args)?;
 
+    LEDGER_SERVICE
+        .mint(TransferArg {
+            from_subaccount: None,
+            to: identity.into(),
+            fee: None,
+            created_at_time: None,
+            memo: None,
+            amount: 1000_usize.into(),
+        })
+        .map_err(|e| ServiceError::InternalError {
+            reason: format!("{:?}", e),
+        })?;
+
     Ok(())
 }
 
