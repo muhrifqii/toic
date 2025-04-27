@@ -97,6 +97,22 @@ impl LedgerService {
     pub fn locked_balance_of(&self, account: Account) -> Tokens {
         get_locked_balance(account)
     }
+
+    pub fn mint(&self, arg: TransferArg) -> Result<BlockIndex, TransferError> {
+        let tx = TxInfo {
+            from: icrc1_minting_account().expect("Bug: failed to get minting account"),
+            to: Some(arg.to),
+            amount: arg.amount,
+            spender: None,
+            memo: None,
+            fee: None,
+            created_at_time: None,
+            expected_allowance: None,
+            expires_at: None,
+            is_approval: false,
+        };
+        apply_tx(tx)
+    }
 }
 
 /// Calculates the total supply of tokens by traversing the transaction log.
