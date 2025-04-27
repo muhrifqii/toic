@@ -3,7 +3,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 #[cfg(any(not(test), rust_analyzer))]
-use ic_cdk::api::{caller, is_controller};
+use ic_cdk::api::{caller, id, is_controller};
 use ic_cdk::{query, update};
 use ic_stable_structures::{BTreeMap, Cell};
 pub use icrc_ledger_types::{
@@ -22,19 +22,21 @@ pub use icrc_ledger_types::{
 use lazy_static::lazy_static;
 
 use crate::memory::{
-    MEMORY_MANAGER, TOKEN_ACCOUNT_BALANCE_MEM_ID, TOKEN_CONFIG_MEM_ID, TOKEN_TX_LOG_MEM_ID,
+    MEMORY_MANAGER, TOKEN_ACCOUNT_BALANCE_MEM_ID, TOKEN_ACCOUNT_STAKING_MEM_ID,
+    TOKEN_CONFIG_MEM_ID, TOKEN_TX_LOG_MEM_ID,
 };
 #[cfg(any(not(test), rust_analyzer))]
 use crate::utils::timestamp;
 
 use super::{
     constant::TOKEN_DATA_IMAGE, to_approve_error, to_transfer_from_error, AccountBalanceRefCell,
-    ConfigRefCell, Configuration, CreateTokenArgs, StorableToken, StorableTransaction,
-    SupportedStandard, Tokens, TransactionLog, TransactionLogRefCell, TxInfo,
+    AccountOwnerBalanceRefCell, ConfigRefCell, Configuration, CreateTokenArgs, StakeTokenArgs,
+    StorableToken, StorableTransaction, SupportedStandard, Tokens, TransactionLog,
+    TransactionLogRefCell, TxInfo,
 };
 
 #[cfg(all(test, not(rust_analyzer)))]
-use crate::utils::mocks::{caller, is_controller, timestamp};
+use crate::utils::mocks::{caller, id, is_controller, timestamp};
 
 const MAX_MEMO_SIZE: usize = 32;
 const PERMITTED_DRIFT_NANOS: u64 = 60_000_000_000;
@@ -43,6 +45,7 @@ const TRANSACTION_WINDOW_NANOS: u64 = 24 * 60 * 60 * 1_000_000_000;
 // Error codes
 const MEMO_TOO_LONG_ERROR_CODE: usize = 0;
 const SELF_TRANSFER_ERROR_CODE: usize = 1;
+const INVALID_STAKE_ERROR_CODE: usize = 2;
 
 thread_local! {
     static CONFIG: ConfigRefCell = RefCell::new(
@@ -63,6 +66,12 @@ thread_local! {
             MEMORY_MANAGER.with_borrow(|m| m.get(TOKEN_ACCOUNT_BALANCE_MEM_ID))
         )
     );
+
+    static STAKED: AccountOwnerBalanceRefCell = RefCell::new(
+        BTreeMap::init(
+            MEMORY_MANAGER.with_borrow(|m| m.get(TOKEN_ACCOUNT_STAKING_MEM_ID))
+        )
+    );
 }
 
 lazy_static! {
@@ -79,6 +88,14 @@ impl LedgerService {
 
     pub fn balance_of(&self, account: Account) -> Tokens {
         icrc1_balance_of(account)
+    }
+
+    pub fn stake(&self, arg: StakeTokenArgs) -> Result<BlockIndex, TransferError> {
+        stake(arg)
+    }
+
+    pub fn locked_balance_of(&self, account: Account) -> Tokens {
+        get_locked_balance(account)
     }
 }
 
@@ -114,6 +131,16 @@ fn get_cached_balance(account: Account) -> Tokens {
     BALANCES.with_borrow(|balances| {
         balances
             .get(&account)
+            .map(|bal| bal.0.clone())
+            .unwrap_or(Tokens::default())
+    })
+}
+
+/// Retrieves the locked/staked balance of an account from the cache.
+fn get_locked_balance(account: Account) -> Tokens {
+    STAKED.with_borrow(|balances| {
+        balances
+            .get(&account.owner)
             .map(|bal| bal.0.clone())
             .unwrap_or(Tokens::default())
     })
@@ -463,6 +490,27 @@ fn apply_tx(tx: TxInfo) -> Result<BlockIndex, TransferError> {
     Ok(block)
 }
 
+fn stake_token(from: Account, amount: Tokens) -> Result<BlockIndex, TransferError> {
+    let tx = TxInfo {
+        from,
+        to: Some(stake_account_address()),
+        amount: amount.clone(),
+        spender: None,
+        memo: None,
+        fee: None,
+        created_at_time: None,
+        expected_allowance: None,
+        expires_at: None,
+        is_approval: false,
+    };
+    let block = apply_tx(tx)?;
+    STAKED.with_borrow_mut(|m| {
+        let prev = m.get(&from.owner).map(|s| s.0).unwrap_or_default();
+        m.insert(from.owner, StorableToken(prev + amount));
+    });
+    Ok(block)
+}
+
 #[update]
 fn create_token(args: Option<CreateTokenArgs>) -> Result<String, String> {
     let caller = caller();
@@ -479,8 +527,8 @@ fn create_token(args: Option<CreateTokenArgs>) -> Result<String, String> {
             token_name: "TOIC".to_string(),
             token_symbol: "TOIC".to_string(),
             token_logo: TOKEN_DATA_IMAGE.to_string(),
-            initial_supply: 5_000_000_000_usize.into(),
-            transfer_fee: 10_usize.into(),
+            initial_supply: 5_000_000_000_000_usize.into(),
+            transfer_fee: 100_usize.into(),
         }
     } else {
         args.unwrap()
@@ -545,6 +593,24 @@ fn delete_token() -> Result<String, String> {
         *cell = TransactionLog::new(memory).unwrap();
     });
     Ok("Token deleted".to_string())
+}
+
+const STAKE_SUBACCOUNT: [u8; 32] = [137; 32];
+
+fn stake_account_address() -> Account {
+    Account {
+        owner: id(),
+        subaccount: Some(STAKE_SUBACCOUNT.into()),
+    }
+}
+
+#[query]
+fn stake(arg: StakeTokenArgs) -> Result<BlockIndex, TransferError> {
+    let from = Account {
+        owner: caller(),
+        subaccount: arg.from_subaccount,
+    };
+    stake_token(from, arg.amount)
 }
 
 #[update]

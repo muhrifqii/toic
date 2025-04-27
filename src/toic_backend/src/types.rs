@@ -356,3 +356,11 @@ pub struct StoryInteractionArgs {
     pub support: Option<SupportSize>,
     pub tip: Option<Tokens>,
 }
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize, Default)]
+pub struct OnboardingArgs {
+    pub name: Option<String>,
+    pub bio: Option<String>,
+    pub categories: Vec<Category>,
+    pub stake_amount: Option<Tokens>,
+}

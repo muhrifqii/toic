@@ -189,7 +189,12 @@ impl StoryService {
         Ok(supporters)
     }
 
-    pub async fn assist_expand_writing(&self, id: &u64) -> ServiceResult<String> {
+    pub async fn assist_expand_writing(
+        &self,
+        id: &u64,
+        identity: &Principal,
+    ) -> ServiceResult<String> {
+        self.user_service.ensure_ai_enabled(&identity)?;
         let content = self
             .story_content_repository
             .get(id)
@@ -200,7 +205,12 @@ impl StoryService {
         Ok(expansion)
     }
 
-    pub async fn assist_story_description(&self, id: &u64) -> ServiceResult<String> {
+    pub async fn assist_story_description(
+        &self,
+        id: &u64,
+        identity: &Principal,
+    ) -> ServiceResult<String> {
+        self.user_service.ensure_ai_enabled(&identity)?;
         let content = self
             .story_content_repository
             .get(id)
