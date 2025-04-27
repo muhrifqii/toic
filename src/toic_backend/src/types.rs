@@ -17,6 +17,7 @@ pub type ServiceResult<T> = Result<T, ServiceError>;
 
 pub type SupportSize = u32;
 pub type ViewSize = u32;
+pub type Score = u64;
 
 #[derive(Error, Debug, Eq, PartialEq, Clone)]
 pub enum RepositoryError {
@@ -156,6 +157,7 @@ pub struct Story {
     pub created_at: u64,
     pub updated_at: Option<u64>,
     pub read_time: u32,
+    pub score: Score,
 }
 
 impl Storable for Story {
@@ -198,6 +200,7 @@ impl Story {
             created_at: 0,
             updated_at: None,
             read_time: draft.read_time,
+            score: 0,
         }
     }
 }

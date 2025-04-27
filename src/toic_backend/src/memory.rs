@@ -24,7 +24,7 @@ pub const IDX_STORY_AUTHOR_MEM_ID: MemoryId = MemoryId::new(8);
 pub const ET_DRAFT_CONTENT_MEM_ID: MemoryId = MemoryId::new(9);
 pub const ET_STORY_CONTENT_MEM_ID: MemoryId = MemoryId::new(10);
 pub const IDX_STORY_SUPPORTER_MEM_ID: MemoryId = MemoryId::new(11);
-pub const ET_STATISTICS_MEM_ID: MemoryId = MemoryId::new(12);
+pub const IDX_STORY_SCORING_MEM_ID: MemoryId = MemoryId::new(12);
 
 pub const TOKEN_CONFIG_MEM_ID: MemoryId = MemoryId::new(13);
 pub const TOKEN_TX_LOG_MEM_ID: MemoryId = MemoryId::new(14);

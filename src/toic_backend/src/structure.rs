@@ -68,7 +68,7 @@ where
     }
 
     fn get_all(&self) -> Vec<V> {
-        Self::with_ref(|cell| cell.borrow().iter().map(|(_, v)| v.clone()).collect())
+        Self::with_ref(|cell| cell.borrow().values().collect())
     }
 
     fn count(&self) -> u64 {

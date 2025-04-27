@@ -14,6 +14,7 @@ lazy_static! {
         Arc::new(UserService::new(USER_REPOSITORY.clone()));
 }
 
+#[derive(Debug)]
 pub struct UserService {
     user_repository: Arc<UserRepository>,
 }
@@ -34,41 +35,41 @@ impl UserService {
         Ok(user)
     }
 
-    pub fn get_user(&self, identity: Principal) -> ServiceResult<User> {
+    pub fn get_user(&self, identity: &Principal) -> ServiceResult<User> {
         self.user_repository
-            .get(&identity)
+            .get(identity)
             .ok_or(ServiceError::IdentityNotFound {
                 identity: identity.to_string(),
             })
     }
 
-    // pub fn complete_onboarding(
-    //     &self,
-    //     identity: Principal,
-    //     selected_categories: Vec<Category>,
-    // ) -> ServiceResult<()> {
-    //     if selected_categories.len() != 3 {
-    //         return Err(ServiceError::UnprocessableEntity {
-    //             reason: "You must select exactly 3 categories.".to_string(),
-    //         });
-    //     }
+    pub fn complete_onboarding(
+        &self,
+        identity: Principal,
+        selected_categories: Vec<Category>,
+    ) -> ServiceResult<()> {
+        if selected_categories.len() != 3 {
+            return Err(ServiceError::UnprocessableEntity {
+                reason: "You must select exactly 3 categories.".to_string(),
+            });
+        }
 
-    //     let mut user =
-    //         self.user_repository
-    //             .get(&identity)
-    //             .ok_or(ServiceError::IdentityNotFound {
-    //                 identity: identity.to_string(),
-    //             })?;
-    //     if user.onboarded {
-    //         return Err(ServiceError::UnprocessableEntity {
-    //             reason: "You have already completed onboarding.".to_string(),
-    //         });
-    //     }
-    //     user.followed_categories = selected_categories;
-    //     user.onboarded = true;
-    //     self.user_repository.update(user).map_err(map_user_err)?;
-    //     Ok(())
-    // }
+        let mut user =
+            self.user_repository
+                .get(&identity)
+                .ok_or(ServiceError::IdentityNotFound {
+                    identity: identity.to_string(),
+                })?;
+        if user.onboarded {
+            return Err(ServiceError::UnprocessableEntity {
+                reason: "You have already completed onboarding.".to_string(),
+            });
+        }
+        user.followed_categories = selected_categories;
+        user.onboarded = true;
+        self.user_repository.update(user).map_err(map_user_err)?;
+        Ok(())
+    }
 }
 
 fn map_user_err(e: RepositoryError) -> ServiceError {
