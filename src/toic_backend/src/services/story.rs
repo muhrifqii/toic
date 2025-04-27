@@ -18,7 +18,7 @@ use crate::{
     token::{LedgerService, LEDGER_SERVICE},
     types::{
         Category, RepositoryError, Score, ServiceError, ServiceResult, SortOrder, Story,
-        StoryContent, StoryInteractionArgs, SupportSize,
+        StoryContent, StoryInteractionArgs, SupportSize, UserOutline,
     },
 };
 
@@ -180,12 +180,20 @@ impl StoryService {
         Ok((next_cursor, stories))
     }
 
-    pub fn get_story_supporter(&self, id: u64) -> ServiceResult<Vec<Principal>> {
+    pub fn get_story_supporter(&self, id: u64) -> ServiceResult<Vec<UserOutline>> {
         let supporters = self
             .story_repository
             .get_story_supporters(id)
             .map_err(map_story_err)?;
-        let supporters = supporters.iter().map(|(s, _, _)| *s).collect();
+        let supporters = supporters
+            .iter()
+            .filter_map(|(u, _, _)| self.user_service.get_user(u).ok())
+            .map(|user| UserOutline {
+                id: user.id,
+                name: user.name,
+                bio: user.bio,
+            })
+            .collect_vec();
         Ok(supporters)
     }
 

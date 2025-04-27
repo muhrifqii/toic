@@ -362,5 +362,31 @@ pub struct OnboardingArgs {
     pub name: Option<String>,
     pub bio: Option<String>,
     pub categories: Vec<Category>,
-    pub stake_amount: Option<Tokens>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub enum AssistActionArgs {
+    ExpandWriting(u64),
+    GenerateDescription(u64),
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct FetchStoriesArgs {
+    pub category: Option<Category>,
+    pub author: Option<Principal>,
+    pub cursor: Option<u64>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct FetchStoriesByScoreArgs {
+    pub cursor: Option<(Score, u64)>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct UserOutline {
+    pub id: Principal,
+    pub name: Option<String>,
+    pub bio: Option<String>,
 }

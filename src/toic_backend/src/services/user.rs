@@ -7,7 +7,7 @@ use crate::{
     repositories::user::{UserRepository, USER_REPOSITORY},
     structure::{BinaryTreeRepository, Repository},
     token::{LedgerService, LEDGER_SERVICE},
-    types::{Category, RepositoryError, ServiceError, ServiceResult, User},
+    types::{Category, OnboardingArgs, RepositoryError, ServiceError, ServiceResult, User},
 };
 
 lazy_static! {
@@ -53,9 +53,9 @@ impl UserService {
     pub fn complete_onboarding(
         &self,
         identity: Principal,
-        selected_categories: Vec<Category>,
+        args: OnboardingArgs,
     ) -> ServiceResult<()> {
-        if selected_categories.len() != 3 {
+        if args.categories.len() != 3 {
             return Err(ServiceError::UnprocessableEntity {
                 reason: "You must select exactly 3 categories.".to_string(),
             });
@@ -72,7 +72,9 @@ impl UserService {
                 reason: "You have already completed onboarding.".to_string(),
             });
         }
-        user.followed_categories = selected_categories;
+        user.name = args.name;
+        user.bio = args.bio;
+        user.followed_categories = args.categories;
         user.onboarded = true;
         self.user_repository.update(user).map_err(map_user_err)?;
         Ok(())
