@@ -29,3 +29,4 @@ pub const IDX_STORY_SCORING_MEM_ID: MemoryId = MemoryId::new(12);
 pub const TOKEN_CONFIG_MEM_ID: MemoryId = MemoryId::new(13);
 pub const TOKEN_TX_LOG_MEM_ID: MemoryId = MemoryId::new(14);
 pub const TOKEN_ACCOUNT_BALANCE_MEM_ID: MemoryId = MemoryId::new(15);
+pub const TOKEN_ACCOUNT_STAKING_MEM_ID: MemoryId = MemoryId::new(16);

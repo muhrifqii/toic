@@ -3,11 +3,11 @@
 
 use std::cell::RefCell;
 
-use candid::{CandidType, Nat};
+use candid::{CandidType, Nat, Principal};
 use ic_stable_structures::{storable::Bound, BTreeMap, Cell, Storable};
 use icrc_ledger_types::{
     icrc1::{
-        account::Account,
+        account::{Account, Subaccount},
         transfer::{Memo, TransferError},
     },
     icrc2::{approve::ApproveError, transfer_from::TransferFromError},
@@ -21,6 +21,7 @@ pub type ConfigRefCell = RefCell<Cell<Configuration, VMemory>>;
 pub type TransactionLog = ic_stable_structures::Vec<StorableTransaction, VMemory>;
 pub type TransactionLogRefCell = RefCell<TransactionLog>;
 pub type AccountBalanceRefCell = RefCell<BTreeMap<Account, StorableToken, VMemory>>;
+pub type AccountOwnerBalanceRefCell = RefCell<BTreeMap<Principal, StorableToken, VMemory>>;
 pub type Tokens = Nat;
 
 #[derive(Debug)]
@@ -111,6 +112,12 @@ pub struct CreateTokenArgs {
     pub initial_supply: Nat,
     pub token_logo: String,
     pub transfer_fee: Nat,
+}
+
+#[derive(Debug, CandidType, Deserialize, Clone)]
+pub struct StakeTokenArgs {
+    pub from_subaccount: Option<Subaccount>,
+    pub amount: Nat,
 }
 
 /// ICRC-2 standard approval error

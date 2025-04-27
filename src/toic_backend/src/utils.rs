@@ -44,6 +44,10 @@ pub mod mocks {
         false
     }
 
+    pub fn id() -> Principal {
+        Principal::from_text("w36hm-eqaaa-aaaal-qr76a-cai").unwrap()
+    }
+
     pub fn reset_timestamp(time: u64) {
         TIMESTAMP.with(|c| c.set(time));
     }
