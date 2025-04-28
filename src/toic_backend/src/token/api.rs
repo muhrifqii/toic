@@ -1,7 +1,8 @@
 // https://github.com/dfinity/examples/blob/master/rust/tokenmania/backend/lib.rs
 
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, str::FromStr, sync::Arc};
 
+use candid::Nat;
 #[cfg(any(not(test), rust_analyzer))]
 use ic_cdk::api::{caller, id, is_controller};
 use ic_cdk::{query, update};
@@ -543,7 +544,7 @@ fn create_token(args: Option<CreateTokenArgs>) -> Result<String, String> {
             token_name: "TOIC".to_string(),
             token_symbol: "TOIC".to_string(),
             token_logo: TOKEN_DATA_IMAGE.to_string(),
-            initial_supply: 5_000_000_000_000_usize.into(),
+            initial_supply: Nat::from_str("5_000_000_000_000").unwrap(),
             transfer_fee: 100_usize.into(),
         }
     } else {

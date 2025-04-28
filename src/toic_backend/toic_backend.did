@@ -1,3 +1,224 @@
+type Account = record { owner : principal; subaccount : opt blob };
+type Allowance = record { allowance : nat; expires_at : opt nat64 };
+type AllowanceArgs = record { account : Account; spender : Account };
+type ApproveArgs = record {
+  fee : opt nat;
+  memo : opt blob;
+  from_subaccount : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+  expected_allowance : opt nat;
+  expires_at : opt nat64;
+  spender : Account;
+};
+type ApproveError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  AllowanceChanged : record { current_allowance : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  Expired : record { ledger_time : nat64 };
+  InsufficientFunds : record { balance : nat };
+};
+type AssistActionArgs = variant {
+  ExpandWriting : nat64;
+  GenerateDescription : nat64;
+};
+type Category = variant {
+  SciFi;
+  Adventure;
+  NonFiction;
+  Romance;
+  Fantasy;
+  Crime;
+  Biography;
+  Thriller;
+  Comedy;
+  Horror;
+};
+type CreateTokenArgs = record {
+  initial_supply : nat;
+  token_symbol : text;
+  transfer_fee : nat;
+  token_logo : text;
+  token_name : text;
+};
+type Draft = record {
+  id : nat64;
+  title : text;
+  updated_at : opt nat64;
+  read_time : nat32;
+  created_at : nat64;
+  detail : opt StoryDetail;
+  author : principal;
+};
+type FetchStoriesArgs = record {
+  cursor : opt nat64;
+  author : opt principal;
+  limit : opt nat64;
+  category : opt Category;
+};
+type FetchStoriesByScoreArgs = record {
+  cursor : opt record { nat64; nat64 };
+  limit : opt nat64;
+};
+type MetadataValue = variant { Int : int; Nat : nat; Blob : blob; Text : text };
+type OnboardingArgs = record {
+  bio : opt text;
+  categories : vec Category;
+  name : opt text;
+};
+type Result = variant { Ok : text; Err : ServiceError };
+type Result_1 = variant { Ok; Err : ServiceError };
+type Result_10 = variant { Ok : nat; Err : TransferError };
+type Result_11 = variant { Ok : nat; Err : ApproveError };
+type Result_12 = variant { Ok : nat; Err : TransferFromError };
+type Result_13 = variant { Ok : User; Err : ServiceError };
+type Result_14 = variant { Ok : Story; Err : ServiceError };
+type Result_2 = variant { Ok : Draft; Err : ServiceError };
+type Result_3 = variant { Ok : text; Err : text };
+type Result_4 = variant {
+  Ok : record { Draft; StoryContent };
+  Err : ServiceError;
+};
+type Result_5 = variant { Ok : vec Draft; Err : ServiceError };
+type Result_6 = variant {
+  Ok : record { opt record { nat64; nat64 }; vec Story };
+  Err : ServiceError;
+};
+type Result_7 = variant {
+  Ok : record { opt nat64; vec Story };
+  Err : ServiceError;
+};
+type Result_8 = variant {
+  Ok : record { Story; StoryContent };
+  Err : ServiceError;
+};
+type Result_9 = variant { Ok : vec UserOutline; Err : ServiceError };
+type SaveDraftArgs = record {
+  title : opt text;
+  content : opt text;
+  detail : opt StoryDetail;
+};
+type ServiceError = variant {
+  StoryNotFound;
+  TransferError : record { reason : text };
+  DraftNotFound;
+  IdentityNotFound : record { identity : text };
+  UnprocessableEntity : record { reason : text };
+  AiModelError : text;
+  IdentityUnauthorized : record { identity : text };
+  InternalError : record { reason : text };
+  Conflict : record { entity : text };
+};
+type StakeTokenArgs = record { from_subaccount : opt blob; amount : nat };
+type Story = record {
+  id : nat64;
+  title : text;
+  updated_at : opt nat64;
+  read_time : nat32;
+  created_at : nat64;
+  detail : StoryDetail;
+  author : principal;
+  score : nat64;
+  total_views : nat32;
+  total_tip_support : nat;
+  total_support : nat32;
+};
+type StoryContent = record { id : nat64; content : text; author : principal };
+type StoryDetail = record {
+  mature_content : bool;
+  description : text;
+  category : Category;
+};
+type StoryInteractionArgs = record {
+  id : nat64;
+  tip : opt nat;
+  support : opt nat32;
+};
+type SupportedStandard = record { url : text; name : text };
+type TransferArg = record {
+  to : Account;
+  fee : opt nat;
+  memo : opt blob;
+  from_subaccount : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+};
+type TransferError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+type TransferFromArgs = record {
+  to : Account;
+  fee : opt nat;
+  spender_subaccount : opt blob;
+  from : Account;
+  memo : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+};
+type TransferFromError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  InsufficientAllowance : record { allowance : nat };
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+type User = record {
+  id : principal;
+  bio : opt text;
+  followed_authors : vec principal;
+  name : opt text;
+  followed_categories : vec Category;
+  created_at : nat64;
+  follower : nat32;
+  onboarded : bool;
+};
+type UserOutline = record { id : principal; bio : opt text; name : opt text };
 service : {
-    "greet": (text) -> (text) query;
+  assist_action : (AssistActionArgs) -> (Result);
+  complete_onboarding : (OnboardingArgs) -> (Result_1);
+  create_draft : (SaveDraftArgs) -> (Result_2);
+  create_token : (opt CreateTokenArgs) -> (Result_3);
+  delete_draft : (nat64) -> (Result_1);
+  delete_token : () -> (Result_3);
+  get_draft : (nat64) -> (Result_4) query;
+  get_drafts : () -> (Result_5) query;
+  get_recommended_stories : (FetchStoriesByScoreArgs) -> (Result_6) query;
+  get_stories_by_author : (FetchStoriesArgs) -> (Result_7) query;
+  get_stories_by_category : (FetchStoriesArgs) -> (Result_7) query;
+  get_story : (nat64) -> (Result_8) query;
+  get_story_supporter : (nat64) -> (Result_9) query;
+  icrc1_balance_of : (Account) -> (nat) query;
+  icrc1_decimals : () -> (nat8) query;
+  icrc1_fee : () -> (nat) query;
+  icrc1_metadata : () -> (vec record { text; MetadataValue }) query;
+  icrc1_minting_account : () -> (opt Account) query;
+  icrc1_name : () -> (text) query;
+  icrc1_supported_standards : () -> (vec SupportedStandard) query;
+  icrc1_token_symbol : () -> (text) query;
+  icrc1_total_supply : () -> (nat) query;
+  icrc1_transfer : (TransferArg) -> (Result_10);
+  icrc2_allowance : (AllowanceArgs) -> (Allowance) query;
+  icrc2_approve : (ApproveArgs) -> (Result_11);
+  icrc2_transfer_from : (TransferFromArgs) -> (Result_12);
+  login : () -> (Result_13);
+  publish_draft : (nat64) -> (Result_14);
+  stake : (StakeTokenArgs) -> (Result_10) query;
+  support_story : (StoryInteractionArgs) -> (Result_1);
+  token_created : () -> (bool) query;
+  update_draft : (nat64, SaveDraftArgs) -> (Result_1);
 }
