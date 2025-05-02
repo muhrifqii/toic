@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { authService, AuthService } from './auth'
+import { authService, AuthService } from '../services/auth'
 
 vi.mock('@dfinity/auth-client')
 

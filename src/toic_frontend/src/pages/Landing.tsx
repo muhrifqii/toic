@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { authService } from '@/lib/auth'
+import { authService } from '@/services/auth'
 import { toast } from 'sonner'
 
 const onLoginClicked = async () => {
