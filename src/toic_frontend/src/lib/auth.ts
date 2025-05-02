@@ -1,6 +1,7 @@
 import { AuthClient } from '@dfinity/auth-client'
 import { toic_backend } from '@declarations/toic_backend'
 import { Principal } from '@dfinity/principal'
+import { CanisterEnv } from './env'
 
 const TTL: bigint = BigInt(1) * BigInt(3_600_000_000_000)
 
@@ -12,10 +13,10 @@ class AuthService {
 
   private constructor() {}
 
-  public static getInstance() {
+  public static async getInstance() {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService()
-      AuthService.instance.init()
+      await AuthService.instance.init()
     }
     return AuthService.instance
   }
@@ -32,8 +33,9 @@ class AuthService {
     }
 
     return new Promise<void>((resolve, reject) => {
+      console.log('check', CanisterEnv.identityURL)
       this.authClient?.login({
-        identityProvider: import.meta.env.VITE_II_CANISTER_URL,
+        identityProvider: CanisterEnv.identityURL,
         maxTimeToLive: TTL,
         onSuccess: () => {
           resolve()
