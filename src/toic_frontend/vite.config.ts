@@ -1,16 +1,32 @@
+/// <reference types="vitest/config" />
+
 import { fileURLToPath, URL } from 'url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import environment from 'vite-plugin-environment'
 import dotenv from 'dotenv'
 import tailwindcss from '@tailwindcss/vite'
+import type { ViteUserConfig as VitestUserConfigInterface } from 'vitest/config'
 
 dotenv.config({ path: '../../.env' })
+
+const vitestConfig: VitestUserConfigInterface = {
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: '../../coverage/fe',
+      reporter: ['html', 'cobertura']
+    }
+  }
+}
 
 export default defineConfig({
   build: {
     emptyOutDir: true
   },
+  test: vitestConfig.test,
   optimizeDeps: {
     esbuildOptions: {
       define: {
@@ -36,7 +52,7 @@ export default defineConfig({
     alias: [
       {
         find: '@declarations',
-        replacement: fileURLToPath(new URL('../../declarations', import.meta.url))
+        replacement: fileURLToPath(new URL('../declarations', import.meta.url))
       },
       {
         find: '@',
