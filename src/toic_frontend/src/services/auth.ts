@@ -1,7 +1,7 @@
 import { AuthClient } from '@dfinity/auth-client'
 import { toic_backend } from '@declarations/toic_backend'
 import { Principal } from '@dfinity/principal'
-import { CanisterEnv } from './env'
+import { CanisterEnv } from '../lib/env'
 
 const TTL: bigint = BigInt(1) * BigInt(3_600_000_000_000)
 
@@ -40,7 +40,8 @@ class AuthService {
         onSuccess: () => {
           resolve()
         },
-        onError: reject
+        onError: reject,
+        windowOpenerFeatures: ''
       })
     })
   }
