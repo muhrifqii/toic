@@ -3,12 +3,8 @@
 import { fileURLToPath, URL } from 'url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import environment from 'vite-plugin-environment'
-import dotenv from 'dotenv'
 import tailwindcss from '@tailwindcss/vite'
 import type { ViteUserConfig as VitestUserConfigInterface } from 'vitest/config'
-
-dotenv.config({ path: '../../.env' })
 
 const vitestConfig: VitestUserConfigInterface = {
   test: {
@@ -42,12 +38,7 @@ export default defineConfig({
       }
     }
   },
-  plugins: [
-    react(),
-    environment('all', { prefix: 'CANISTER_' }),
-    environment('all', { prefix: 'DFX_' }),
-    tailwindcss()
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
       {
@@ -60,5 +51,7 @@ export default defineConfig({
       }
     ],
     dedupe: ['@dfinity/agent']
-  }
+  },
+  envDir: '../..',
+  envPrefix: ['DFX_', 'CANISTER_']
 })
