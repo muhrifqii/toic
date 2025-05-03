@@ -1,15 +1,16 @@
 import { AuthClient } from '@dfinity/auth-client'
 import { toic_backend } from '@declarations/toic_backend'
 import { Principal } from '@dfinity/principal'
-import { CanisterEnv } from '../lib/env'
+import { CanisterEnv } from '@/lib/env'
+import { unwrapResult } from '@/lib/mapper'
+import { User } from '@declarations/toic_backend/toic_backend.did'
 
 const TTL: bigint = BigInt(1) * BigInt(3_600_000_000_000)
-
-function userExistCheck() {}
 
 class AuthService {
   private static instance: AuthService
   private authClient: AuthClient | null = null
+  private user: User | null = null
 
   private constructor() {}
 
@@ -33,15 +34,17 @@ class AuthService {
     }
 
     return new Promise<void>((resolve, reject) => {
-      console.log('check', CanisterEnv.identityURL)
       this.authClient?.login({
         identityProvider: CanisterEnv.identityURL,
         maxTimeToLive: TTL,
-        onSuccess: () => {
+        onSuccess: async () => {
+          const err = await this.backendLogin()
+          if (err) {
+            return reject(err.message)
+          }
           resolve()
         },
-        onError: reject,
-        windowOpenerFeatures: ''
+        onError: reject
       })
     })
   }
@@ -60,6 +63,20 @@ class AuthService {
 
   public getClient(): AuthClient | null {
     return this.authClient
+  }
+
+  public getUser(): User | null {
+    return this.user
+  }
+
+  async backendLogin() {
+    const result = await toic_backend.login()
+    const [user, err] = unwrapResult(result)
+    console.log(user, result)
+    if (!!err) {
+      return err
+    }
+    this.user = user
   }
 }
 

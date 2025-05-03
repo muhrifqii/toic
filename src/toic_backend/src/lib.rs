@@ -16,12 +16,12 @@ use utils::timestamp;
 
 fn get_and_validate_caller() -> ApiResult<Principal> {
     let identity = caller();
-    if identity == Principal::anonymous() {
-        return Err(ServiceError::IdentityUnauthorized {
-            identity: identity.to_string(),
-        })
-        .map_err(api_err);
-    }
+    // if identity == Principal::anonymous() {
+    //     return Err(ServiceError::IdentityUnauthorized {
+    //         identity: identity.to_string(),
+    //     })
+    //     .map_err(api_err);
+    // }
     Ok(identity)
 }
 

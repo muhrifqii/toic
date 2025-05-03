@@ -1,11 +1,10 @@
-import { useState } from 'react'
-import { toic_backend } from '@declarations/toic_backend'
-import LandingPage from './pages/Landing'
+import { RouterProvider } from 'react-router'
+import { router } from './routes/routes'
 
 function App() {
   return (
     <>
-      <LandingPage />
+      <RouterProvider router={router} />
     </>
   )
 }

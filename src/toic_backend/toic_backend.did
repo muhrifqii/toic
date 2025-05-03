@@ -54,6 +54,7 @@ type Draft = record {
   detail : opt StoryDetail;
   author : principal;
 };
+type ErrorResponse = record { message : text };
 type FetchStoriesArgs = record {
   cursor : opt nat64;
   author : opt principal;
@@ -70,48 +71,37 @@ type OnboardingArgs = record {
   categories : vec Category;
   name : opt text;
 };
-type Result = variant { Ok : text; Err : ServiceError };
-type Result_1 = variant { Ok; Err : ServiceError };
+type Result = variant { Ok : text; Err : ErrorResponse };
+type Result_1 = variant { Ok; Err : ErrorResponse };
 type Result_10 = variant { Ok : nat; Err : TransferError };
 type Result_11 = variant { Ok : nat; Err : ApproveError };
 type Result_12 = variant { Ok : nat; Err : TransferFromError };
-type Result_13 = variant { Ok : User; Err : ServiceError };
-type Result_14 = variant { Ok : Story; Err : ServiceError };
-type Result_2 = variant { Ok : Draft; Err : ServiceError };
+type Result_13 = variant { Ok : User; Err : ErrorResponse };
+type Result_14 = variant { Ok : Story; Err : ErrorResponse };
+type Result_2 = variant { Ok : Draft; Err : ErrorResponse };
 type Result_3 = variant { Ok : text; Err : text };
 type Result_4 = variant {
   Ok : record { Draft; StoryContent };
-  Err : ServiceError;
+  Err : ErrorResponse;
 };
-type Result_5 = variant { Ok : vec Draft; Err : ServiceError };
+type Result_5 = variant { Ok : vec Draft; Err : ErrorResponse };
 type Result_6 = variant {
   Ok : record { opt record { nat64; nat64 }; vec Story };
-  Err : ServiceError;
+  Err : ErrorResponse;
 };
 type Result_7 = variant {
   Ok : record { opt nat64; vec Story };
-  Err : ServiceError;
+  Err : ErrorResponse;
 };
 type Result_8 = variant {
   Ok : record { Story; StoryContent };
-  Err : ServiceError;
+  Err : ErrorResponse;
 };
-type Result_9 = variant { Ok : vec UserOutline; Err : ServiceError };
+type Result_9 = variant { Ok : vec UserOutline; Err : ErrorResponse };
 type SaveDraftArgs = record {
   title : opt text;
   content : opt text;
   detail : opt StoryDetail;
-};
-type ServiceError = variant {
-  StoryNotFound;
-  TransferError : record { reason : text };
-  DraftNotFound;
-  IdentityNotFound : record { identity : text };
-  UnprocessableEntity : record { reason : text };
-  AiModelError : text;
-  IdentityUnauthorized : record { identity : text };
-  InternalError : record { reason : text };
-  Conflict : record { entity : text };
 };
 type StakeTokenArgs = record { from_subaccount : opt blob; amount : nat };
 type Story = record {
