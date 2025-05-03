@@ -3,7 +3,7 @@ import { toic_backend } from '@declarations/toic_backend'
 import { Principal } from '@dfinity/principal'
 import { CanisterEnv } from '@/lib/env'
 import { unwrapResult } from '@/lib/mapper'
-import { User } from '@declarations/toic_backend/toic_backend.did'
+import { OnboardingArgs, User } from '@declarations/toic_backend/toic_backend.did'
 
 const TTL: bigint = BigInt(1) * BigInt(3_600_000_000_000)
 
@@ -69,10 +69,17 @@ class AuthService {
     return this.user
   }
 
-  async backendLogin() {
+  public async onboard(args: OnboardingArgs) {
+    const result = await toic_backend.complete_onboarding(args)
+    const [, err] = unwrapResult(result)
+    if (!!err) {
+      throw err.message
+    }
+  }
+
+  public async backendLogin() {
     const result = await toic_backend.login()
     const [user, err] = unwrapResult(result)
-    console.log(user, result)
     if (!!err) {
       return err
     }
