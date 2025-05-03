@@ -14,6 +14,7 @@ pub type BTreeMapRefCell<K, V> = RefCell<BTreeMap<K, V, VMemory>>;
 
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
 pub type ServiceResult<T> = Result<T, ServiceError>;
+pub type ApiResult<T> = Result<T, ErrorResponse>;
 
 pub type SupportSize = u32;
 pub type ViewSize = u32;
@@ -389,4 +390,9 @@ pub struct UserOutline {
     pub id: Principal,
     pub name: Option<String>,
     pub bio: Option<String>,
+}
+
+#[derive(Debug, Clone, CandidType, Deserialize, Serialize)]
+pub struct ErrorResponse {
+    pub message: String,
 }

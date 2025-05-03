@@ -14,148 +14,185 @@ use token::*;
 use types::*;
 use utils::timestamp;
 
-fn get_and_validate_caller() -> ServiceResult<Principal> {
+fn get_and_validate_caller() -> ApiResult<Principal> {
     let identity = caller();
     if identity == Principal::anonymous() {
         return Err(ServiceError::IdentityUnauthorized {
             identity: identity.to_string(),
-        });
+        })
+        .map_err(api_err);
     }
     Ok(identity)
 }
 
-#[update]
-async fn create_draft(args: SaveDraftArgs) -> ServiceResult<Draft> {
-    let identity = get_and_validate_caller()?;
-
-    DRAFT_SERVICE.create_draft(args, identity).await
+fn api_err(err: ServiceError) -> ErrorResponse {
+    return ErrorResponse {
+        message: err.to_string(),
+    };
 }
 
 #[update]
-async fn update_draft(id: u64, args: SaveDraftArgs) -> ServiceResult<()> {
+async fn create_draft(args: SaveDraftArgs) -> ApiResult<Draft> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.update_draft(id, args, identity).await
+    DRAFT_SERVICE
+        .create_draft(args, identity)
+        .await
+        .map_err(api_err)
 }
 
 #[update]
-async fn publish_draft(id: u64) -> ServiceResult<Story> {
+async fn update_draft(id: u64, args: SaveDraftArgs) -> ApiResult<()> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.publish_draft(id, identity).await
+    DRAFT_SERVICE
+        .update_draft(id, args, identity)
+        .await
+        .map_err(api_err)
 }
 
 #[update]
-async fn delete_draft(id: u64) -> ServiceResult<()> {
+async fn publish_draft(id: u64) -> ApiResult<Story> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.delete_draft(id, identity).await.map(|_| ())
+    DRAFT_SERVICE
+        .publish_draft(id, identity)
+        .await
+        .map_err(api_err)
+}
+
+#[update]
+async fn delete_draft(id: u64) -> ApiResult<()> {
+    let identity = get_and_validate_caller()?;
+
+    DRAFT_SERVICE
+        .delete_draft(id, identity)
+        .await
+        .map_err(api_err)
+        .map(|_| ())
 }
 
 #[query]
-fn get_draft(id: u64) -> ServiceResult<(Draft, StoryContent)> {
+fn get_draft(id: u64) -> ApiResult<(Draft, StoryContent)> {
     get_and_validate_caller()?;
 
-    DRAFT_SERVICE.get_draft(&id)
+    DRAFT_SERVICE.get_draft(&id).map_err(api_err)
 }
 
 #[query]
-fn get_drafts() -> ServiceResult<Vec<Draft>> {
+fn get_drafts() -> ApiResult<Vec<Draft>> {
     let identity = get_and_validate_caller()?;
 
-    DRAFT_SERVICE.get_drafts(identity)
+    DRAFT_SERVICE.get_drafts(identity).map_err(api_err)
 }
 
 #[query]
-fn get_story(id: u64) -> ServiceResult<(Story, StoryContent)> {
+fn get_story(id: u64) -> ApiResult<(Story, StoryContent)> {
     // anon can read
 
-    STORY_SERVICE.get_story(&id)
+    STORY_SERVICE.get_story(&id).map_err(api_err)
 }
 
 #[query]
 fn get_recommended_stories(
     args: FetchStoriesByScoreArgs,
-) -> ServiceResult<(Option<(Score, u64)>, Vec<Story>)> {
+) -> ApiResult<(Option<(Score, u64)>, Vec<Story>)> {
     get_and_validate_caller()?;
 
-    STORY_SERVICE.get_recommended_stories(args.cursor, args.limit.unwrap_or(15))
+    STORY_SERVICE
+        .get_recommended_stories(args.cursor, args.limit.unwrap_or(15))
+        .map_err(api_err)
 }
 
 #[query]
-fn get_stories_by_author(args: FetchStoriesArgs) -> ServiceResult<(Option<u64>, Vec<Story>)> {
+fn get_stories_by_author(args: FetchStoriesArgs) -> ApiResult<(Option<u64>, Vec<Story>)> {
     // anon can read
 
     if args.author.is_none() {
         return Err(ServiceError::UnprocessableEntity {
             reason: "Author is required.".to_string(),
-        });
+        })
+        .map_err(api_err);
     }
 
-    STORY_SERVICE.get_stories_by_author(args.author.unwrap(), args.cursor, args.limit.unwrap_or(15))
+    STORY_SERVICE
+        .get_stories_by_author(args.author.unwrap(), args.cursor, args.limit.unwrap_or(15))
+        .map_err(api_err)
 }
 
 #[query]
-fn get_stories_by_category(args: FetchStoriesArgs) -> ServiceResult<(Option<u64>, Vec<Story>)> {
+fn get_stories_by_category(args: FetchStoriesArgs) -> ApiResult<(Option<u64>, Vec<Story>)> {
     // anon can read
 
     if args.category.is_none() {
         return Err(ServiceError::UnprocessableEntity {
             reason: "Category is required.".to_string(),
-        });
+        })
+        .map_err(api_err);
     }
 
-    STORY_SERVICE.get_stories_by_category(
-        args.category.unwrap(),
-        args.cursor,
-        args.limit.unwrap_or(15),
-    )
+    STORY_SERVICE
+        .get_stories_by_category(
+            args.category.unwrap(),
+            args.cursor,
+            args.limit.unwrap_or(15),
+        )
+        .map_err(api_err)
 }
 
 #[update]
-async fn support_story(args: StoryInteractionArgs) -> ServiceResult<()> {
+async fn support_story(args: StoryInteractionArgs) -> ApiResult<()> {
     let identity = get_and_validate_caller()?;
 
-    STORY_SERVICE.support_story(args, identity).await
+    STORY_SERVICE
+        .support_story(args, identity)
+        .await
+        .map_err(api_err)
 }
 
 #[query]
-fn get_story_supporter(id: u64) -> ServiceResult<Vec<UserOutline>> {
+fn get_story_supporter(id: u64) -> ApiResult<Vec<UserOutline>> {
     get_and_validate_caller()?;
 
-    STORY_SERVICE.get_story_supporter(id)
+    STORY_SERVICE.get_story_supporter(id).map_err(api_err)
 }
 
 #[update]
-async fn assist_action(args: AssistActionArgs) -> ServiceResult<String> {
+async fn assist_action(args: AssistActionArgs) -> ApiResult<String> {
     let identity = &get_and_validate_caller()?;
 
     match args {
-        AssistActionArgs::ExpandWriting(id) => {
-            STORY_SERVICE.assist_expand_writing(&id, identity).await
-        }
-        AssistActionArgs::GenerateDescription(id) => {
-            STORY_SERVICE.assist_story_description(&id, identity).await
-        }
+        AssistActionArgs::ExpandWriting(id) => STORY_SERVICE
+            .assist_expand_writing(&id, identity)
+            .await
+            .map_err(api_err),
+        AssistActionArgs::GenerateDescription(id) => STORY_SERVICE
+            .assist_story_description(&id, identity)
+            .await
+            .map_err(api_err),
     }
 }
 
 #[update]
-async fn login() -> ServiceResult<User> {
+async fn login() -> ApiResult<User> {
     let identity = get_and_validate_caller()?;
 
     match USER_SERVICE.get_user(&identity) {
         Ok(user) => Ok(user),
-        Err(ServiceError::IdentityNotFound { .. }) => USER_SERVICE.register(identity, timestamp()),
-        Err(e) => Err(e),
+        Err(ServiceError::IdentityNotFound { .. }) => USER_SERVICE
+            .register(identity, timestamp())
+            .map_err(api_err),
+        Err(e) => Err(e).map_err(api_err),
     }
 }
 
 #[update]
-async fn complete_onboarding(args: OnboardingArgs) -> ServiceResult<()> {
+async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<()> {
     let identity = get_and_validate_caller()?;
 
-    USER_SERVICE.complete_onboarding(identity, args)?;
+    USER_SERVICE
+        .complete_onboarding(identity, args)
+        .map_err(api_err)?;
 
     LEDGER_SERVICE
         .mint(TransferArg {
@@ -168,7 +205,8 @@ async fn complete_onboarding(args: OnboardingArgs) -> ServiceResult<()> {
         })
         .map_err(|e| ServiceError::InternalError {
             reason: format!("{:?}", e),
-        })?;
+        })
+        .map_err(api_err)?;
 
     Ok(())
 }
