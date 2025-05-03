@@ -2,59 +2,81 @@ import { devtools, persist } from 'zustand/middleware'
 import { create } from 'zustand'
 import { authService } from '@/services/auth'
 import { toast } from 'sonner'
-import { User } from '@declarations/toic_backend/toic_backend.did'
+import { OnboardingArgs, User } from '@declarations/toic_backend/toic_backend.did'
+import { OnboardingArgsBuilder } from '@/types/core'
+import { mapToCategory, optionOf } from '@/lib/mapper'
 
-type AuthStore = {
+type AuthState = {
   isAuthenticated: boolean
   principal: string | null
   isHydrating: boolean
+  isHydrated: boolean
   user: Pick<User, 'name' | 'onboarded'> | null
+}
+
+type AuthAction = {
   hydrate: () => Promise<void>
   login: () => Promise<void>
   logout: () => Promise<void>
+  onboard: (args: OnboardingArgsBuilder) => Promise<void>
 }
 
-export const useAuthStore = create<AuthStore>()(
-  devtools(
-    persist(
-      set => ({
-        isAuthenticated: false,
-        principal: null,
-        isHydrating: true,
-        user: null,
+const initialState: AuthState = {
+  isAuthenticated: false,
+  principal: null,
+  isHydrating: false,
+  isHydrated: false,
+  user: null
+}
 
-        hydrate: async () => {
-          const auth = await authService()
-          const isAuthenticated = await auth.isAuthenticated()
-          const principal = isAuthenticated ? auth.getPrincipal()?.toText() : null
+export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
+  ...initialState,
 
-          set(({ user }) => ({ isAuthenticated, principal, isHydrating: false, user: isAuthenticated ? user : null }))
-        },
-        login: async () => {
-          const auth = await authService()
-          try {
-            await auth.login()
-            const principal = auth.getPrincipal()?.toText()
-            const user = auth.getUser()
-            set({ isAuthenticated: true, principal, user })
-          } catch (reason: any) {
-            set({ isAuthenticated: false, principal: null, user: null })
-            toast.error(reason)
-          }
-        },
-        logout: async () => {
-          const auth = await authService()
-          await auth.logout()
-          set({ isAuthenticated: false, principal: null, user: null })
-        }
-      }),
-      {
-        name: 'auth-store',
-        partialize(state) {
-          // persisted auth is already handled by AuthService+Client
-          return { user: state.user }
-        }
-      }
-    )
-  )
-)
+  hydrate: async () => {
+    if (get().isHydrated) {
+      return
+    }
+
+    const auth = await authService()
+    const isAuthenticated = await auth.isAuthenticated()
+    const principal = isAuthenticated ? auth.getPrincipal()?.toText() : null
+    let user: Pick<User, 'name' | 'onboarded'> | null = auth.getUser()
+    if (isAuthenticated) {
+      await auth.backendLogin()
+      user = auth.getUser()
+    }
+
+    set(state => {
+      console.log('setting state', state)
+      return { isAuthenticated, principal, isHydrating: false, isHydrated: true, user }
+    })
+  },
+  login: async () => {
+    const auth = await authService()
+    try {
+      await auth.login()
+      const principal = auth.getPrincipal()?.toText()
+      const user = auth.getUser()
+
+      set({ isAuthenticated: true, principal, user })
+    } catch (reason: any) {
+      set({ isAuthenticated: false, principal: null, user: null })
+      toast.error(reason)
+    }
+  },
+  logout: async () => {
+    const auth = await authService()
+    await auth.logout()
+    set({ isAuthenticated: false, principal: null, user: null })
+  },
+  onboard: async ({ name, bio, categories }) => {
+    const auth = await authService()
+    const nameOpt = optionOf(name)
+    await auth.onboard({
+      name: nameOpt,
+      bio: optionOf(bio),
+      categories: categories.map(mapToCategory)
+    })
+    set({ user: { name: nameOpt, onboarded: true } })
+  }
+}))

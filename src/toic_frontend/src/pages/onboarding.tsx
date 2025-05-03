@@ -2,15 +2,13 @@ import { onboardingSchema, OnboardingValues } from '@/lib/validations/onboarding
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { toic_backend } from '@declarations/toic_backend'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router'
-import { mapToCategory, optionOf } from '@/lib/mapper'
-import { CategoryName, categoryNames } from '@/types/core'
+import { categoryNames } from '@/types/core'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Button, LoadingButton } from '@/components/ui/button'
+import { LoadingButton } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/store/auth'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
@@ -19,16 +17,12 @@ export default function OnboardingPage() {
     defaultValues: { name: '', bio: '', categories: [] },
     mode: 'onChange'
   })
+  const onboardFn = useAuthStore(state => state.onboard)
 
-  const onSubmit = async ({ name, bio, categories }: OnboardingValues) => {
+  const onSubmit = async (val: OnboardingValues) => {
     try {
-      toic_backend.complete_onboarding({
-        name: optionOf(name),
-        bio: optionOf(bio),
-        categories: categories.map(mapToCategory)
-      })
+      await onboardFn(val)
       toast.success("Welcome! You've received a limited time gifts 🥳")
-      navigate('/')
     } catch (err) {
       toast.error('Failed to complete onboarding')
       console.error(err)

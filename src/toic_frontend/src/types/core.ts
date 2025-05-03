@@ -12,3 +12,9 @@ export const categoryNames = [
 ] as const
 
 export type CategoryName = (typeof categoryNames)[number]
+
+export type OnboardingArgsBuilder = {
+  name?: string
+  bio?: string
+  categories: CategoryName[]
+}

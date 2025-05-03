@@ -9,7 +9,7 @@ export default function MainLayout() {
   const hydrate = useAuthStore(state => state.hydrate)
 
   useEffect(() => {
-    void hydrate()
+    hydrate()
   }, [])
 
   return (

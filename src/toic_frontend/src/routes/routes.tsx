@@ -5,13 +5,15 @@ import { createBrowserRouter, Navigate } from 'react-router'
 const NotFoundPage = lazy(() => import('@/pages/not-found'))
 const LandingPage = lazy(() => import('@/pages/landing'))
 const OnboardingPage = lazy(() => import('@/pages/onboarding'))
+const NewStoryPage = lazy(() => import('@/pages/new-story'))
 
 export const router = createBrowserRouter([
   {
     Component: MainLayout,
     children: [
       { index: true, Component: LandingPage },
-      { path: 'onboarding', Component: OnboardingPage }
+      { path: 'onboarding', Component: OnboardingPage },
+      { path: 'new-story', Component: NewStoryPage }
     ]
   },
   { path: '404', Component: NotFoundPage },

@@ -3,12 +3,13 @@ import { PropWithChild } from '@/types/ui'
 import { Navigate, useLocation } from 'react-router'
 
 function hasPermission(path: string, authed: boolean, onboarded: boolean) {
-  if (path === '/new-story' || path.startsWith('/me/')) {
-    return authed
-  }
   if (authed && !onboarded && path !== '/onboarding') {
     return false
   }
+  if (path === '/new-story' || path.startsWith('/me/') || path === '/onboarding') {
+    return authed
+  }
+
   return true
 }
 
