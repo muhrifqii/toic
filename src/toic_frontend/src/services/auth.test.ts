@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { authService, AuthService } from '../services/auth'
 
 vi.mock('@dfinity/auth-client')
+vi.mock('@declarations/toic_backend', () => {
+  return import('../../__mocks__/@declarations/toic_backend')
+})
 
 describe('AuthService', () => {
   let auth: AuthService

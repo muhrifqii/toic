@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import type { ViteUserConfig as VitestUserConfigInterface } from 'vitest/config'
+import dotenv from 'dotenv'
+import environment from 'vite-plugin-environment'
+
+dotenv.config({ path: '../../.env' })
 
 const vitestConfig: VitestUserConfigInterface = {
   test: {
@@ -38,7 +42,12 @@ export default defineConfig({
       }
     }
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    environment('all', { prefix: 'CANISTER_' }),
+    environment('all', { prefix: 'DFX_' })
+  ],
   resolve: {
     alias: [
       {
