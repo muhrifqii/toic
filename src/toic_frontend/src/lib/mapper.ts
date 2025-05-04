@@ -25,6 +25,8 @@ export function unwrapResult<T, E>(result: CandidResult<T, E>): [T, null] | [nul
   }
 }
 
-export function unwrapOption<T>(option: CandidOption<T>): T | null {
+export function unwrapOption<T>(option?: CandidOption<T>): T | null {
+  if (!option) return null
+
   return option.length === 0 ? null : option[0]
 }

@@ -27,20 +27,36 @@ export default function LandingPage() {
 
   if (!isAuthed) {
     return (
-      <>
-        {/* <Navbar /> */}
-        <main className='container mx-auto p-8 text-center'>
+      <main className='w-full'>
+        <section className='flex bg-[#E8A233] items-center justify-center'>
+          <img src='/toic_full.png' className='my-20 w-3xl' />
+        </section>
+        <section className='container mx-auto p-8 text-center'>
           <h1 className='text-4xl font-bold mb-4'>Write. Read. Inspire.</h1>
           <p className='mb-6 text-lg'>Share your stories and discover new voices—powered by ICP.</p>
           <Button onClick={onLoginClicked}>Internet Identity Login</Button>
-        </main>
-      </>
+        </section>
+        <section className='container mx-auto p-8 text-center'>
+          <h1 className='text-4xl font-bold mb-4'>Write. Read. Inspire.</h1>
+          <p className='mb-6 text-lg'>Share your stories and discover new voices—powered by ICP.</p>
+          <Button onClick={onLoginClicked}>Internet Identity Login</Button>
+        </section>
+        <section className='container mx-auto p-8 text-center'>
+          <h1 className='text-4xl font-bold mb-4'>Write. Read. Inspire.</h1>
+          <p className='mb-6 text-lg'>Share your stories and discover new voices—powered by ICP.</p>
+          <Button onClick={onLoginClicked}>Internet Identity Login</Button>
+        </section>
+        <section className='container mx-auto p-8 text-center'>
+          <h1 className='text-4xl font-bold mb-4'>Write. Read. Inspire.</h1>
+          <p className='mb-6 text-lg'>Share your stories and discover new voices—powered by ICP.</p>
+          <Button onClick={onLoginClicked}>Internet Identity Login</Button>
+        </section>
+      </main>
     )
   }
 
   return (
     <>
-      {/* <Navbar showProfile /> */}
       <main className='container mx-auto p-8 space-y-6'>
         <h2 className='text-2xl font-semibold'>Recommended for you</h2>
         <p>YOHOHOHOHOHOHOHOHO</p>

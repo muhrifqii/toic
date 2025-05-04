@@ -19,6 +19,10 @@
     "@dfinity/candid": "2.4.1",
     "@dfinity/principal": "2.4.1",
     "@hookform/resolvers": "^5.0.1",
+    "@lexical/markdown": "^0.31.0",
+    "@lexical/react": "^0.31.0",
+    "@lexical/rich-text": "^0.31.0",
+    "@lexical/selection": "^0.31.0",
     "@radix-ui/react-accordion": "^1.2.8",
     "@radix-ui/react-avatar": "^1.1.7",
     "@radix-ui/react-checkbox": "^1.2.3",
@@ -35,9 +39,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "lexical-floating-menu": "^0.1.0",
     "lucide-react": "0.507.0",
     "next-themes": "^0.4.6",
-    "quill": "^2.0.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.56.1",
@@ -64,6 +68,7 @@
     "tw-animate-css": "^1.2.8",
     "typescript": "5.8.3",
     "vite": "6.3.3",
+    "vite-plugin-environment": "^1.1.3",
     "vitest": "^3.1.2"
   }
 }
