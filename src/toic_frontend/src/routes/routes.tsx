@@ -1,4 +1,6 @@
+import EditorLayout from '@/components/layouts/editor'
 import MainLayout from '@/components/layouts/main'
+import RootLayout from '@/components/layouts/root'
 import { lazy } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 
@@ -9,11 +11,19 @@ const NewStoryPage = lazy(() => import('@/pages/new-story'))
 
 export const router = createBrowserRouter([
   {
-    Component: MainLayout,
+    Component: RootLayout,
     children: [
-      { index: true, Component: LandingPage },
-      { path: 'onboarding', Component: OnboardingPage },
-      { path: 'new-story', Component: NewStoryPage }
+      {
+        Component: MainLayout,
+        children: [
+          { index: true, Component: LandingPage },
+          { path: 'onboarding', Component: OnboardingPage }
+        ]
+      },
+      {
+        Component: EditorLayout,
+        children: [{ path: 'new-story', Component: NewStoryPage }]
+      }
     ]
   },
   { path: '404', Component: NotFoundPage },
