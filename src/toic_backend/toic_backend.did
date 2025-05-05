@@ -70,34 +70,36 @@ type OnboardingArgs = record {
   bio : opt text;
   categories : vec Category;
   name : opt text;
+  referral_code : opt text;
 };
 type Result = variant { Ok : text; Err : ErrorResponse };
-type Result_1 = variant { Ok; Err : ErrorResponse };
-type Result_10 = variant { Ok : nat; Err : TransferError };
-type Result_11 = variant { Ok : nat; Err : ApproveError };
-type Result_12 = variant { Ok : nat; Err : TransferFromError };
-type Result_13 = variant { Ok : User; Err : ErrorResponse };
-type Result_14 = variant { Ok : Story; Err : ErrorResponse };
+type Result_1 = variant { Ok : bool; Err : ErrorResponse };
+type Result_10 = variant { Ok : vec UserOutline; Err : ErrorResponse };
+type Result_11 = variant { Ok : nat; Err : TransferError };
+type Result_12 = variant { Ok : nat; Err : ApproveError };
+type Result_13 = variant { Ok : nat; Err : TransferFromError };
+type Result_14 = variant { Ok : User; Err : ErrorResponse };
+type Result_15 = variant { Ok : Story; Err : ErrorResponse };
 type Result_2 = variant { Ok : Draft; Err : ErrorResponse };
 type Result_3 = variant { Ok : text; Err : text };
-type Result_4 = variant {
+type Result_4 = variant { Ok; Err : ErrorResponse };
+type Result_5 = variant {
   Ok : record { Draft; StoryContent };
   Err : ErrorResponse;
 };
-type Result_5 = variant { Ok : vec Draft; Err : ErrorResponse };
-type Result_6 = variant {
+type Result_6 = variant { Ok : vec Draft; Err : ErrorResponse };
+type Result_7 = variant {
   Ok : record { opt record { nat64; nat64 }; vec Story };
   Err : ErrorResponse;
 };
-type Result_7 = variant {
+type Result_8 = variant {
   Ok : record { opt nat64; vec Story };
   Err : ErrorResponse;
 };
-type Result_8 = variant {
+type Result_9 = variant {
   Ok : record { Story; StoryContent };
   Err : ErrorResponse;
 };
-type Result_9 = variant { Ok : vec UserOutline; Err : ErrorResponse };
 type SaveDraftArgs = record {
   title : opt text;
   content : opt text;
@@ -183,15 +185,16 @@ service : {
   complete_onboarding : (OnboardingArgs) -> (Result_1);
   create_draft : (SaveDraftArgs) -> (Result_2);
   create_token : (opt CreateTokenArgs) -> (Result_3);
-  delete_draft : (nat64) -> (Result_1);
+  debug_drafting : () -> (vec Draft, vec StoryContent) query;
+  delete_draft : (nat64) -> (Result_4);
   delete_token : () -> (Result_3);
-  get_draft : (nat64) -> (Result_4) query;
-  get_drafts : () -> (Result_5) query;
-  get_recommended_stories : (FetchStoriesByScoreArgs) -> (Result_6) query;
-  get_stories_by_author : (FetchStoriesArgs) -> (Result_7) query;
-  get_stories_by_category : (FetchStoriesArgs) -> (Result_7) query;
-  get_story : (nat64) -> (Result_8) query;
-  get_story_supporter : (nat64) -> (Result_9) query;
+  get_draft : (nat64) -> (Result_5) query;
+  get_drafts : () -> (Result_6) query;
+  get_recommended_stories : (FetchStoriesByScoreArgs) -> (Result_7) query;
+  get_stories_by_author : (FetchStoriesArgs) -> (Result_8) query;
+  get_stories_by_category : (FetchStoriesArgs) -> (Result_8) query;
+  get_story : (nat64) -> (Result_9) query;
+  get_story_supporter : (nat64) -> (Result_10) query;
   icrc1_balance_of : (Account) -> (nat) query;
   icrc1_decimals : () -> (nat8) query;
   icrc1_fee : () -> (nat) query;
@@ -201,14 +204,14 @@ service : {
   icrc1_supported_standards : () -> (vec SupportedStandard) query;
   icrc1_token_symbol : () -> (text) query;
   icrc1_total_supply : () -> (nat) query;
-  icrc1_transfer : (TransferArg) -> (Result_10);
+  icrc1_transfer : (TransferArg) -> (Result_11);
   icrc2_allowance : (AllowanceArgs) -> (Allowance) query;
-  icrc2_approve : (ApproveArgs) -> (Result_11);
-  icrc2_transfer_from : (TransferFromArgs) -> (Result_12);
-  login : () -> (Result_13);
-  publish_draft : (nat64) -> (Result_14);
-  stake : (StakeTokenArgs) -> (Result_10) query;
-  support_story : (StoryInteractionArgs) -> (Result_1);
+  icrc2_approve : (ApproveArgs) -> (Result_12);
+  icrc2_transfer_from : (TransferFromArgs) -> (Result_13);
+  login : () -> (Result_14);
+  publish_draft : (nat64) -> (Result_15);
+  stake : (StakeTokenArgs) -> (Result_11) query;
+  support_story : (StoryInteractionArgs) -> (Result_4);
   token_created : () -> (bool) query;
-  update_draft : (nat64, SaveDraftArgs) -> (Result_1);
+  update_draft : (nat64, SaveDraftArgs) -> (Result_4);
 }

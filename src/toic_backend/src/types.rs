@@ -58,6 +58,7 @@ pub enum ServiceError {
 
 pub trait AuditableEntity {
     fn id(&self) -> u64;
+    fn set_id(&mut self, id: u64);
     fn set_created_at(&mut self, created_at: u64);
     fn set_updated_at(&mut self, updated_at: u64);
 }
@@ -181,6 +182,10 @@ impl AuditableEntity for Story {
         self.id
     }
 
+    fn set_id(&mut self, id: u64) {
+        self.id = id
+    }
+
     fn set_created_at(&mut self, created_at: u64) {
         self.created_at = created_at;
     }
@@ -235,6 +240,10 @@ impl Storable for Draft {
 impl AuditableEntity for Draft {
     fn id(&self) -> u64 {
         self.id
+    }
+
+    fn set_id(&mut self, id: u64) {
+        self.id = id
     }
 
     fn set_created_at(&mut self, created_at: u64) {
@@ -363,6 +372,7 @@ pub struct OnboardingArgs {
     pub name: Option<String>,
     pub bio: Option<String>,
     pub categories: Vec<Category>,
+    pub referral_code: Option<String>,
 }
 
 #[derive(Debug, Clone, CandidType, Deserialize, Serialize)]

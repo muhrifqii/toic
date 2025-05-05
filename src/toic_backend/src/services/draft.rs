@@ -261,6 +261,13 @@ impl DraftService {
                 reason: format!("Failed to get drafts: {}", e),
             })
     }
+
+    // debug only
+    pub fn debug_drafts(&self) -> (Vec<Draft>, Vec<StoryContent>) {
+        let drafts = self.draft_repository.get_all();
+        let contents = self.draft_content_repository.get_all();
+        (drafts, contents)
+    }
 }
 
 fn validate_draft_author(author: Principal, identity: Principal) -> Result<(), ServiceError> {

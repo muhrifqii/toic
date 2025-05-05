@@ -16,5 +16,6 @@ export type CategoryName = (typeof categoryNames)[number]
 export type OnboardingArgsBuilder = {
   name?: string
   bio?: string
+  code?: string
   categories: CategoryName[]
 }

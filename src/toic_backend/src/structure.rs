@@ -114,6 +114,7 @@ where
         let now = timestamp();
         let id = self.next_id();
         value.set_created_at(now);
+        value.set_id(id);
         Self::with_ref(|cell| cell.borrow_mut().insert(id, value.clone()));
         self.save_indexes(&value, None);
         Ok(value)
