@@ -7,7 +7,9 @@ export function ProfileButton({ name }: { name?: string | null }) {
       <Link to='/me'>
         <Avatar className='size-12 border-primary border-2'>
           <AvatarImage src={name ? `https://avatar.iran.liara.run/public?username=${name}` : undefined} />
-          <AvatarFallback>{name ?? '?'}</AvatarFallback>
+          <AvatarFallback className='font-bold text-primary'>
+            {name?.substring(0, 2)?.toUpperCase() ?? '??'}
+          </AvatarFallback>
         </Avatar>
       </Link>
     </div>

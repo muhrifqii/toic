@@ -4,6 +4,7 @@ import { CandidOption } from '@/types/candid'
 import { CategoryName } from '@/types/core'
 import { toic_backend } from '@declarations/toic_backend'
 import { SaveDraftArgs, StoryDetail } from '@declarations/toic_backend/toic_backend.did'
+import { toast } from 'sonner'
 import { create } from 'zustand'
 
 type DraftingState = {
@@ -14,16 +15,19 @@ type DraftingState = {
   draftContent: string | null
   category: CategoryName | null
   description: string | null
+  error: '404' | string | null
 }
 
 type DraftingAction = {
   setActiveDraft: (id?: string | null) => void
   setCategory: (cat: CategoryName) => void
-  setDraftTitle: (title?: string) => void
-  setContent: (content?: string) => void
-  save: (args: Partial<Pick<DraftingState, 'category' | 'description'>>) => void
-  getDraft: (id: string) => void
+  setDraftTitle: (title?: string) => Promise<void>
+  setContent: (content?: string) => Promise<void>
+  save: (args: Partial<Pick<DraftingState, 'category' | 'description' | 'draftTitle' | 'draftContent'>>) => void
+  saveDetail: (args: Partial<Pick<DraftingState, 'category' | 'description'>>) => void
+  getDraft: (id: string) => Promise<void>
   publish: () => Promise<string>
+  errorHandled: () => void
 }
 
 const initialState: DraftingState = {
@@ -33,7 +37,8 @@ const initialState: DraftingState = {
   draftTitle: null,
   draftContent: null,
   category: null,
-  description: null
+  description: null,
+  error: null
 }
 
 export const NewStoryIdPlaceholder = 'itisnewstory'
@@ -52,20 +57,36 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
 
   setCategory: cat => set({ category: cat }),
 
-  setDraftTitle: draftTitle => set({ draftTitle }),
+  errorHandled: () => set({ error: null }),
 
-  setContent: draftContent => {
-    if (draftContent != null) {
-      set({ draftContent })
+  setDraftTitle: async draftTitle => {
+    if (get().saving) {
+      console.log('saving while having another saving in progress')
       return
     }
-    set({ draftContent: null })
+    const selectedId = get().selectedId
+    if (!selectedId) {
+      console.error('saving on a non id selected')
+      throw 'Saving failed'
+    }
+    get().save({ draftTitle })
   },
 
-  /**
-   * @throws error string
-   */
-  save: async ({ category, description }) => {
+  setContent: async draftContent => {
+    if (get().saving) {
+      console.log('saving while having another saving in progress')
+      return
+    }
+    const selectedId = get().selectedId
+    if (!selectedId) {
+      console.error('saving on a non id selected')
+      throw 'Saving failed'
+    }
+
+    get().save({ draftContent })
+  },
+
+  saveDetail: async ({ category, description }) => {
     if (get().saving) {
       console.log('saving while having another saving in progress')
       return
@@ -96,14 +117,79 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
           }
         ]
       : []
-    const draftTitle = get().draftTitle
-    const draftContent = get().draftContent
+
+    const saveArgs: SaveDraftArgs = {
+      title: [],
+      content: [],
+      detail: storyDetailDid
+    }
+
+    if (selectedId === NewStoryIdPlaceholder) {
+      const result = await toic_backend.create_draft(saveArgs)
+      const [draft, err] = unwrapResult(result)
+      if (err) {
+        set({ saving: false })
+        throw err.message
+      }
+      if (!draft) {
+        console.log('null draft but no error returned')
+        set({ saving: false })
+        throw 'Saving failed'
+      }
+      return set({ selectedId: encodeId(draft.id), saving: false, category, description })
+    }
+    const actualId = decodeId(selectedId)
+    const result = await toic_backend.update_draft(actualId, saveArgs)
+    const [, err] = unwrapResult(result)
+    if (err) {
+      set({ saving: false })
+      throw err.message
+    }
+    return set(state => ({
+      saving: false,
+      category: hasDetailUpdate && category ? category : state.category,
+      description: hasDetailUpdate && description != null ? description : state.description
+    }))
+  },
+
+  save: async ({ category, description, draftTitle, draftContent }) => {
+    if (get().saving) {
+      console.log('saving while having another saving in progress')
+      return
+    }
+    const selectedId = get().selectedId
+    if (!selectedId) {
+      console.error('saving on a non id selected')
+      throw 'Saving failed'
+    }
+
+    set({ saving: true })
+
+    let hasDetailUpdate = false
+    // add extra validation inside
+    if (category && get().category !== category) {
+      hasDetailUpdate = true
+    }
+    if (description != null && get().description !== description) {
+      hasDetailUpdate = true
+    }
+
+    const storyDetailDid: CandidOption<StoryDetail> = hasDetailUpdate
+      ? [
+          {
+            description: description ?? '',
+            mature_content: false,
+            category: mapToCategory(category ?? get().category ?? 'NonFiction')
+          }
+        ]
+      : []
     const saveArgs: SaveDraftArgs = {
       title: optionOf(draftTitle),
       content: optionOf(draftContent),
       detail: storyDetailDid
     }
 
+    console.log('mau disave:', selectedId, ' args:', saveArgs)
     if (selectedId === NewStoryIdPlaceholder) {
       const result = await toic_backend.create_draft(saveArgs)
       const [draft, err] = unwrapResult(result)
@@ -136,10 +222,11 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     }))
   },
 
-  /**
-   * @throws error string
-   */
   getDraft: async (id: string) => {
+    if (id === NewStoryIdPlaceholder) {
+      console.warn('Prohibited action: getDraft')
+      return
+    }
     set({ fetching: true })
     const actualId = decodeId(id)
     const result = await toic_backend.get_draft(actualId)
@@ -147,11 +234,16 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     set({ fetching: false })
 
     if (!!err) {
-      throw err.message
+      toast.error(err.message)
+      set({ error: '404' })
+      return
     }
     if (!draft) {
-      throw DraftNotFoundErrMsg
+      toast.error(DraftNotFoundErrMsg)
+      set({ error: '404' })
+      return
     }
+
     const [outline, content] = draft
     const storyDetail = unwrapOption(outline.detail)
     const draftTitle = outline.title
@@ -164,9 +256,6 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     set({ description, category, draftContent, draftTitle, selectedId: id })
   },
 
-  /**
-   * @throws error string
-   */
   publish: async () => {
     const id = get().selectedId
     if (!id) {
