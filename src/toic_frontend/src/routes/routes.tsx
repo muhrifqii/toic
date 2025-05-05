@@ -1,5 +1,3 @@
-import EditorLayout from '@/components/layouts/editor'
-import MainLayout from '@/components/layouts/main'
 import RootLayout from '@/components/layouts/root'
 import { lazy } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
@@ -7,7 +5,8 @@ import { createBrowserRouter, Navigate } from 'react-router'
 const NotFoundPage = lazy(() => import('@/pages/not-found'))
 const LandingPage = lazy(() => import('@/pages/landing'))
 const OnboardingPage = lazy(() => import('@/pages/onboarding'))
-const NewStoryPage = lazy(() => import('@/pages/new-story'))
+const StoryEditorPage = lazy(() => import('@/pages/story-editor'))
+const MainLayout = lazy(() => import('@/components/layouts/main'))
 
 export const router = createBrowserRouter([
   {
@@ -21,8 +20,11 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        Component: EditorLayout,
-        children: [{ path: 'new-story', Component: NewStoryPage }]
+        Component: StoryEditorPage,
+        children: [
+          { path: 'new-story', element: null },
+          { path: 'x/:id/edit', element: null }
+        ]
       }
     ]
   },

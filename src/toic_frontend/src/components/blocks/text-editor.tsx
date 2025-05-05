@@ -21,10 +21,13 @@ import {
   LINK,
   QUOTE,
   Transformer,
-  UNORDERED_LIST
+  UNORDERED_LIST,
+  $convertToMarkdownString,
+  $convertFromMarkdownString
 } from '@lexical/markdown'
 import lexicalTheme from '../themes/lexical'
 import { EditorFloatingMenu } from './editor-floating-menu'
+import { useDebounceCallback } from 'usehooks-ts'
 
 const initialConfig: InitialConfigType = {
   namespace: 'toic-story',
@@ -47,11 +50,22 @@ const transformers: Transformer[] = [
   QUOTE
 ]
 
+function setMd(mds: string) {
+  $convertFromMarkdownString(mds, transformers)
+}
+
 type StoryEditorProps = {
-  onChange: (editorState: EditorState, editor: LexicalEditor, tags: Set<string>) => void
+  onChange?: (text: string) => void
 }
 
 function StoryEditor({ onChange }: StoryEditorProps) {
+  const onChangeListener = useDebounceCallback((state: EditorState) => {
+    state.read(() => {
+      const mds = $convertToMarkdownString(transformers)
+      onChange?.(mds)
+    })
+  }, 1000)
+
   return (
     <LexicalComposer initialConfig={initialConfig}>
       <div className='relative'>
@@ -70,10 +84,10 @@ function StoryEditor({ onChange }: StoryEditorProps) {
         <HistoryPlugin />
         <MarkdownShortcutPlugin transformers={transformers} />
         <FloatingMenuPlugin MenuComponent={EditorFloatingMenu} element={document.body} />
-        <OnChangePlugin onChange={onChange} />
+        <OnChangePlugin onChange={(state, editor) => onChangeListener(state)} ignoreSelectionChange />
       </div>
     </LexicalComposer>
   )
 }
 
-export { StoryEditor }
+export { StoryEditor, setMd }

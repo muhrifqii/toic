@@ -86,28 +86,6 @@ export function EditorFloatingMenu({ editor }: FloatingMenuComponentProps) {
           <Italic className='size-4' />
         </Toggle>
       </ToggleGroup>
-      <ToggleGroup size='sm' type='multiple'>
-        <Toggle
-          aria-label='Format text as bold'
-          pressed={state.isBold}
-          className='rounded-none'
-          onClick={() => {
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')
-          }}
-        >
-          <Bold className='size-4' />
-        </Toggle>
-        <Toggle
-          aria-label='Format text as italic'
-          pressed={state.isItalic}
-          className='rounded-none'
-          onClick={() => {
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')
-          }}
-        >
-          <Italic className='size-4' />
-        </Toggle>
-      </ToggleGroup>
     </div>
   )
 }

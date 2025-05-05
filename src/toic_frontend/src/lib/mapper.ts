@@ -3,7 +3,7 @@ import { CategoryName } from '@/types/core'
 import { Category } from '@declarations/toic_backend/toic_backend.did'
 
 export function optionOf<T>(value?: T | null): CandidOption<T> {
-  if (value !== null && value !== undefined) {
+  if (value != null) {
     return [value]
   }
   return []
