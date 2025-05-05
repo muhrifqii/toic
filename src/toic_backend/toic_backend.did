@@ -1,6 +1,16 @@
 type Account = record { owner : principal; subaccount : opt blob };
 type Allowance = record { allowance : nat; expires_at : opt nat64 };
 type AllowanceArgs = record { account : Account; spender : Account };
+type Approve = record {
+  fee : opt nat;
+  from : Account;
+  memo : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+  expected_allowance : opt nat;
+  expires_at : opt nat64;
+  spender : Account;
+};
 type ApproveArgs = record {
   fee : opt nat;
   memo : opt blob;
@@ -25,6 +35,13 @@ type ApproveError = variant {
 type AssistActionArgs = variant {
   ExpandWriting : nat64;
   GenerateDescription : nat64;
+};
+type Burn = record {
+  from : Account;
+  memo : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+  spender : opt Account;
 };
 type Category = variant {
   SciFi;
@@ -66,6 +83,12 @@ type FetchStoriesByScoreArgs = record {
   limit : opt nat64;
 };
 type MetadataValue = variant { Int : int; Nat : nat; Blob : blob; Text : text };
+type Mint = record {
+  to : Account;
+  memo : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+};
 type OnboardingArgs = record {
   bio : opt text;
   categories : vec Category;
@@ -131,6 +154,23 @@ type StoryInteractionArgs = record {
   support : opt nat32;
 };
 type SupportedStandard = record { url : text; name : text };
+type Transaction = record {
+  burn : opt Burn;
+  kind : text;
+  mint : opt Mint;
+  approve : opt Approve;
+  timestamp : nat64;
+  transfer : opt Transfer;
+};
+type Transfer = record {
+  to : Account;
+  fee : opt nat;
+  from : Account;
+  memo : opt blob;
+  created_at_time : opt nat64;
+  amount : nat;
+  spender : opt Account;
+};
 type TransferArg = record {
   to : Account;
   fee : opt nat;
@@ -208,9 +248,10 @@ service : {
   icrc2_allowance : (AllowanceArgs) -> (Allowance) query;
   icrc2_approve : (ApproveArgs) -> (Result_12);
   icrc2_transfer_from : (TransferFromArgs) -> (Result_13);
+  log_trx : () -> (vec Transaction) query;
   login : () -> (Result_14);
   publish_draft : (nat64) -> (Result_15);
-  stake : (StakeTokenArgs) -> (Result_11) query;
+  stake : (StakeTokenArgs) -> (Result_11);
   support_story : (StoryInteractionArgs) -> (Result_4);
   token_created : () -> (bool) query;
   update_draft : (nat64, SaveDraftArgs) -> (Result_4);

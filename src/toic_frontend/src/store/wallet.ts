@@ -6,6 +6,7 @@ import { beService } from './auth'
 type WalletState = {
   token: string | null
   fee: string | null
+  stakeLoading: boolean
 }
 
 type WalletAction = {
@@ -18,7 +19,8 @@ type WalletAction = {
 
 const initialState: WalletState = {
   token: null,
-  fee: null
+  fee: null,
+  stakeLoading: false
 }
 
 export const useWalletStore = create<WalletState & WalletAction>()((set, get) => ({
@@ -36,11 +38,13 @@ export const useWalletStore = create<WalletState & WalletAction>()((set, get) =>
     set({ fee: fee.toString() })
   },
   stake: async amount => {
+    set({ stakeLoading: true })
     const result = await beService().stake({
       from_subaccount: [],
       amount: BigInt(amount)
     })
     const [, err] = unwrapResult(result)
+    set({ stakeLoading: false })
     if (!!err) {
       console.error(err)
       // toast.error()

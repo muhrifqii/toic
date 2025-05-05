@@ -528,6 +528,18 @@ fn stake_token(from: Account, amount: Tokens) -> Result<BlockIndex, TransferErro
     Ok(block)
 }
 
+#[query]
+fn log_trx() -> Vec<Transaction> {
+    let ret = TRANSACTION_LOG.with_borrow(|log| {
+        let mut nv = Vec::new();
+        for x in log.iter() {
+            nv.push(x.0);
+        }
+        nv
+    });
+    ret
+}
+
 #[update]
 fn create_token(args: Option<CreateTokenArgs>) -> Result<String, String> {
     let caller = caller();
@@ -621,7 +633,7 @@ fn stake_account_address() -> Account {
     }
 }
 
-#[query]
+#[update]
 fn stake(arg: StakeTokenArgs) -> Result<BlockIndex, TransferError> {
     let from = Account {
         owner: caller(),
