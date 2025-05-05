@@ -2,9 +2,12 @@ import { devtools, persist } from 'zustand/middleware'
 import { create } from 'zustand'
 import { authService } from '@/services/auth'
 import { toast } from 'sonner'
-import { OnboardingArgs, User } from '@declarations/toic_backend/toic_backend.did'
+import { User } from '@declarations/toic_backend/toic_backend.did'
 import { OnboardingArgsBuilder } from '@/types/core'
 import { mapToCategory, optionOf } from '@/lib/mapper'
+import { usePersonalStore } from './personal'
+import { useWalletStore } from './wallet'
+import { toic_backend } from '@declarations/toic_backend'
 
 type AuthState = {
   isAuthenticated: boolean
@@ -12,6 +15,7 @@ type AuthState = {
   isHydrating: boolean
   isHydrated: boolean
   user: Pick<User, 'name' | 'onboarded'> | null
+  actor: typeof toic_backend
 }
 
 type AuthAction = {
@@ -26,7 +30,8 @@ const initialState: AuthState = {
   principal: null,
   isHydrating: false,
   isHydrated: false,
-  user: null
+  user: null,
+  actor: toic_backend
 }
 
 export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
@@ -38,6 +43,7 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     }
 
     const auth = await authService()
+    const actor = auth.getActor()
     const isAuthenticated = await auth.isAuthenticated()
     const principal = isAuthenticated ? auth.getPrincipal()?.toText() : null
     let user: Pick<User, 'name' | 'onboarded'> | null = auth.getUser()
@@ -47,18 +53,20 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     }
 
     set(state => {
-      // console.log('setting user', user)
-      return { isAuthenticated, principal, isHydrating: false, isHydrated: true, user }
+      return { isAuthenticated, principal, isHydrating: false, isHydrated: true, user, actor }
     })
   },
   login: async () => {
     const auth = await authService()
+    const actor = auth.getActor()
     try {
       await auth.login()
       const principal = auth.getPrincipal()?.toText()
       const user = auth.getUser()
 
-      set({ isAuthenticated: true, principal, user })
+      console.log('logging in user', principal, user)
+
+      set({ isAuthenticated: true, principal, user, actor })
     } catch (reason: any) {
       set({ isAuthenticated: false, principal: null, user: null })
       toast.error(reason)
@@ -67,7 +75,9 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
   logout: async () => {
     const auth = await authService()
     await auth.logout()
-    set({ isAuthenticated: false, principal: null, user: null })
+    usePersonalStore.getState().reset()
+    useWalletStore.getState().reset()
+    set({ isAuthenticated: false, principal: null, user: null, actor: auth.getActor() })
   },
   onboard: async ({ name, bio, categories, code }) => {
     const auth = await authService()
@@ -82,3 +92,6 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     return withReferral
   }
 }))
+
+// shortcut for not having to use hooks
+export const beService = () => useAuthStore.getState().actor

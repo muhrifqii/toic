@@ -17,12 +17,12 @@ use utils::timestamp;
 
 fn get_and_validate_caller() -> ApiResult<Principal> {
     let identity = caller();
-    // if identity == Principal::anonymous() {
-    //     return Err(ServiceError::IdentityUnauthorized {
-    //         identity: identity.to_string(),
-    //     })
-    //     .map_err(api_err);
-    // }
+    if identity == Principal::anonymous() {
+        return Err(ServiceError::IdentityUnauthorized {
+            identity: identity.to_string(),
+        })
+        .map_err(api_err);
+    }
     Ok(identity)
 }
 
@@ -217,9 +217,16 @@ async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<bool> {
     Ok(false)
 }
 
+// debuging
+
 #[query]
 fn debug_drafting() -> (Vec<Draft>, Vec<StoryContent>) {
     DRAFT_SERVICE.debug_drafts()
+}
+
+#[query]
+fn whoami() -> Principal {
+    caller()
 }
 
 export_candid!();
