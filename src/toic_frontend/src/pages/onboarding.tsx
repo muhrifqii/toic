@@ -23,8 +23,8 @@ export default function OnboardingPage() {
     try {
       const withReferral = await onboardFn(val)
       const msg = withReferral ? " You've received a limited time airdrop gifts 🥳" : ''
-      toast.success('Welcome!' + msg)
       navigate('/')
+      toast.success('Welcome!' + msg)
     } catch (err) {
       toast.error('Failed to complete onboarding')
       console.error(err)

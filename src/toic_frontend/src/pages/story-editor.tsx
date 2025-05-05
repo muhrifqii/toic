@@ -19,6 +19,8 @@ export default function StoryEditorPage() {
   const fetching = useDraftingStore(state => state.fetching)
   const saving = useDraftingStore(state => state.saving)
   const publish = useDraftingStore(state => state.publish)
+  const title = useDraftingStore(state => state.draftTitle)
+  const content = useDraftingStore(state => state.draftContent)
 
   const setTitleDebounced = useDebounceCallback(setTitle, 1000)
 
@@ -26,8 +28,7 @@ export default function StoryEditorPage() {
     if (!selectedId || selectedId === NewStoryIdPlaceholder) {
       return
     }
-    console.log('should navigate to ', selectedId)
-    // navigate(`/x/${selectedId}/edit`, { replace: true })
+    navigate(`/x/${selectedId}/edit`, { replace: true })
   }, [selectedId])
 
   // delete below later
@@ -42,14 +43,10 @@ export default function StoryEditorPage() {
     <RouteEditorGuard>
       <NavbarEditor>
         <div className='flex flex-row h-full py-6 justify-stretch items-center gap-4'>
-          {/* <LoadingButton isLoading={fetching || saving} loadingText='Saving'>
-            Save Draft
-          </LoadingButton> */}
-          <LoadingButton
-            isLoading={saving}
-            loadingText='Publishing'
-            disabled={fetching || selectedId === NewStoryIdPlaceholder}
-          >
+          <h1 className='text-muted-foreground'>
+            {saving ? 'Saving' : selectedId !== NewStoryIdPlaceholder ? 'Saved' : ''}
+          </h1>
+          <LoadingButton loadingText='Publishing' disabled={fetching || saving || selectedId === NewStoryIdPlaceholder}>
             Publish
           </LoadingButton>
           <Separator orientation='vertical' />
@@ -63,9 +60,10 @@ export default function StoryEditorPage() {
               aria-placeholder='title'
               className='!font-medium !text-5xl !h-fit !border-none !rounded-none !shadow-none !px-0 focus-visible:!ring-0 !bg-none resize-none'
               onChange={e => setTitleDebounced(e.target.value)}
+              defaultValue={title ?? undefined}
             />
             <div className='mt-4'>
-              <StoryEditor onChange={setContent} />
+              <StoryEditor onChange={setContent} initialMd={content ?? undefined} />
             </div>
           </div>
         ) : (
