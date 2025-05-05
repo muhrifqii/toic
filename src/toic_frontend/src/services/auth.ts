@@ -1,9 +1,9 @@
 import { AuthClient } from '@dfinity/auth-client'
-import { toic_backend } from '@declarations/toic_backend'
 import { Principal } from '@dfinity/principal'
 import { CanisterEnv } from '@/lib/env'
 import { unwrapResult } from '@/lib/mapper'
 import { OnboardingArgs, User } from '@declarations/toic_backend/toic_backend.did'
+import { canisterId, createActor, toic_backend } from '@declarations/toic_backend'
 
 const TTL: bigint = BigInt(1) * BigInt(3_600_000_000_000)
 
@@ -11,19 +11,25 @@ class AuthService {
   private static instance: AuthService
   private authClient: AuthClient | null = null
   private user: User | null = null
+  private actor: typeof toic_backend | null = null
 
   private constructor() {}
 
   public static async getInstance() {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService()
-      await AuthService.instance.init()
+      await AuthService.instance.invalidateActor()
     }
     return AuthService.instance
   }
 
-  private async init() {
+  private async invalidateActor() {
     this.authClient = await AuthClient.create()
+    this.resetActor()
+  }
+
+  private resetActor() {
+    this.actor = createActor(canisterId, { agentOptions: { identity: this.authClient?.getIdentity() } })
   }
 
   /// May throw an error through promise.reject
@@ -33,17 +39,20 @@ class AuthService {
       return
     }
 
+    const onSuccess = async (resolve: () => void, reject: (reason: string) => void) => {
+      await this.invalidateActor()
+      const err = await this.backendLogin()
+      if (err) {
+        return reject(err.message)
+      }
+      resolve()
+    }
+
     return new Promise<void>((resolve, reject) => {
       this.authClient?.login({
         identityProvider: CanisterEnv.identityURL,
         maxTimeToLive: TTL,
-        onSuccess: async () => {
-          const err = await this.backendLogin()
-          if (err) {
-            return reject(err.message)
-          }
-          resolve()
-        },
+        onSuccess: () => onSuccess(resolve, reject),
         onError: reject
       })
     })
@@ -51,6 +60,8 @@ class AuthService {
 
   public async logout() {
     await this.authClient?.logout()
+    this.user = null
+    await this.invalidateActor()
   }
 
   public async isAuthenticated() {
@@ -65,12 +76,16 @@ class AuthService {
     return this.authClient
   }
 
+  public getActor(): typeof toic_backend {
+    return this.actor!
+  }
+
   public getUser(): User | null {
     return this.user
   }
 
   public async onboard(args: OnboardingArgs) {
-    const result = await toic_backend.complete_onboarding(args)
+    const result = await this.getActor().complete_onboarding(args)
     const [withReferral, err] = unwrapResult(result)
     if (!!err) {
       throw err.message
@@ -79,7 +94,7 @@ class AuthService {
   }
 
   public async backendLogin() {
-    const result = await toic_backend.login()
+    const result = await this.getActor().login()
     const [user, err] = unwrapResult(result)
     if (!!err) {
       return err

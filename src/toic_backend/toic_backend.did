@@ -214,4 +214,5 @@ service : {
   support_story : (StoryInteractionArgs) -> (Result_4);
   token_created : () -> (bool) query;
   update_draft : (nat64, SaveDraftArgs) -> (Result_4);
+  whoami : () -> (principal) query;
 }

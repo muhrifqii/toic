@@ -2,10 +2,10 @@ import { mapFromCategory, mapToCategory, optionOf, unwrapOption, unwrapResult } 
 import { decodeId, encodeId } from '@/lib/string'
 import { CandidOption } from '@/types/candid'
 import { CategoryName } from '@/types/core'
-import { toic_backend } from '@declarations/toic_backend'
 import { SaveDraftArgs, StoryDetail } from '@declarations/toic_backend/toic_backend.did'
 import { toast } from 'sonner'
 import { create } from 'zustand'
+import { beService } from './auth'
 
 type DraftingState = {
   selectedId: string | null
@@ -125,7 +125,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     }
 
     if (selectedId === NewStoryIdPlaceholder) {
-      const result = await toic_backend.create_draft(saveArgs)
+      const result = await beService().create_draft(saveArgs)
       const [draft, err] = unwrapResult(result)
       if (err) {
         set({ saving: false })
@@ -139,7 +139,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       return set({ selectedId: encodeId(draft.id), saving: false, category, description })
     }
     const actualId = decodeId(selectedId)
-    const result = await toic_backend.update_draft(actualId, saveArgs)
+    const result = await beService().update_draft(actualId, saveArgs)
     const [, err] = unwrapResult(result)
     if (err) {
       set({ saving: false })
@@ -191,7 +191,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
 
     console.log('mau disave:', selectedId, ' args:', saveArgs)
     if (selectedId === NewStoryIdPlaceholder) {
-      const result = await toic_backend.create_draft(saveArgs)
+      const result = await beService().create_draft(saveArgs)
       const [draft, err] = unwrapResult(result)
       if (err) {
         set({ saving: false })
@@ -207,7 +207,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     }
     const actualId = decodeId(selectedId)
     console.log('mau update', actualId)
-    const result = await toic_backend.update_draft(actualId, saveArgs)
+    const result = await beService().update_draft(actualId, saveArgs)
     const [, err] = unwrapResult(result)
     if (err) {
       set({ saving: false })
@@ -231,7 +231,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     }
     set({ fetching: true })
     const actualId = decodeId(id)
-    const result = await toic_backend.get_draft(actualId)
+    const result = await beService().get_draft(actualId)
     const [draft, err] = unwrapResult(result)
     set({ fetching: false })
 
@@ -267,7 +267,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     set({ saving: true })
 
     const actualId = decodeId(id)
-    const result = await toic_backend.publish_draft(actualId)
+    const result = await beService().publish_draft(actualId)
     const [story, err] = unwrapResult(result)
     set({ saving: false })
     if (!!err) {

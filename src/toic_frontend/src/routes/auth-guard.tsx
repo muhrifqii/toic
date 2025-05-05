@@ -10,8 +10,8 @@ function hasPermission(path: string, authed: boolean, onboarded: boolean) {
   if (path === '/new-story' || path.startsWith('/me/') || path === '/onboarding') {
     return authed
   }
-
-  return true
+  if (path === '/') return true
+  return authed
 }
 
 export default function RouteAuthGuard({ children }: PropWithChild) {
