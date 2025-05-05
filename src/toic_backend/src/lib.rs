@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
 use serde_bytes::ByteBuf;
@@ -205,7 +207,7 @@ async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<bool> {
                 fee: None,
                 created_at_time: None,
                 memo: Some(ByteBuf::from(code.clone()).into()),
-                amount: 1000_usize.into(),
+                amount: 1_001_100_usize.into(),
             })
             .map_err(|e| ServiceError::InternalError {
                 reason: format!("{:?}", e),

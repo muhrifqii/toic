@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { LoadingButton } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/store/auth'
+import { useState } from 'react'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
@@ -18,15 +19,20 @@ export default function OnboardingPage() {
     mode: 'onChange'
   })
   const onboardFn = useAuthStore(state => state.onboard)
+  const [processing, setProcessing] = useState(false)
 
   const onSubmit = async (val: OnboardingValues) => {
     try {
+      setProcessing(true)
       const withReferral = await onboardFn(val)
       const msg = withReferral ? " You've received a limited time airdrop gifts 🥳" : ''
-      navigate('/')
       toast.success('Welcome!' + msg)
+      await new Promise(res => setTimeout(res, 1000))
+      setProcessing(false)
+      navigate('/')
     } catch (err) {
       toast.error('Failed to complete onboarding')
+      setProcessing(false)
       console.error(err)
     }
   }
@@ -117,7 +123,7 @@ export default function OnboardingPage() {
 
         <LoadingButton
           type='submit'
-          isLoading={form.formState.isSubmitting}
+          isLoading={form.formState.isSubmitting || processing}
           disabled={!form.formState.isValid}
           className='w-full'
         >

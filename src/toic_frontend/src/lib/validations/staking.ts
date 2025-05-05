@@ -2,14 +2,14 @@ import { z } from 'zod'
 
 export const stakingFormSchema = z
   .object({
-    amount: z.number().optional(),
+    amount: z.coerce.number().min(0.00000001, 'Invalid amount').optional(),
     balance: z.number(),
     fee: z.number()
   })
   .refine(
     val => {
-      const tot = val.amount ?? 0 + val.fee
-      return val.balance < tot
+      const tot = (val.amount ?? 0) + val.fee
+      return val.balance >= tot
     },
     { message: 'Insufficient balance' }
   )
