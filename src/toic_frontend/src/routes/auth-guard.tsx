@@ -26,6 +26,10 @@ export default function RouteAuthGuard({ children }: PropWithChild) {
     return <LoadingPage />
   }
 
+  if (authed && onboarded && pathname === '/onboarding') {
+    return <Navigate to='/' />
+  }
+
   if (hasPermission(pathname, authed, onboarded)) {
     return children
   }

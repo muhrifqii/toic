@@ -14,15 +14,17 @@ export default function OnboardingPage() {
   const navigate = useNavigate()
   const form = useForm<OnboardingValues>({
     resolver: zodResolver(onboardingSchema),
-    defaultValues: { name: '', bio: '', categories: [] },
+    defaultValues: { name: '', bio: '', categories: [], code: '' },
     mode: 'onChange'
   })
   const onboardFn = useAuthStore(state => state.onboard)
 
   const onSubmit = async (val: OnboardingValues) => {
     try {
-      await onboardFn(val)
-      toast.success("Welcome! You've received a limited time gifts 🥳")
+      const withReferral = await onboardFn(val)
+      const msg = withReferral ? " You've received a limited time airdrop gifts 🥳" : ''
+      toast.success('Welcome!' + msg)
+      navigate('/')
     } catch (err) {
       toast.error('Failed to complete onboarding')
       console.error(err)
@@ -93,6 +95,20 @@ export default function OnboardingPage() {
                     )
                   })}
                 </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name='code'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor='code'>Referral Code (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder='Referral Code' {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

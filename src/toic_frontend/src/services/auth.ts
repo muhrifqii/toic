@@ -71,10 +71,11 @@ class AuthService {
 
   public async onboard(args: OnboardingArgs) {
     const result = await toic_backend.complete_onboarding(args)
-    const [, err] = unwrapResult(result)
+    const [withReferral, err] = unwrapResult(result)
     if (!!err) {
       throw err.message
     }
+    return withReferral
   }
 
   public async backendLogin() {

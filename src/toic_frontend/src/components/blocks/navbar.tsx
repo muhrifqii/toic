@@ -14,6 +14,7 @@ export function Navbar() {
   const user = useAuthStore(state => state.user)
   const login = useAuthStore(state => state.login)
 
+  const onboarded = user?.onboarded ?? false
   const name = unwrapOption(user?.name)
 
   const onLoginClicked = async () => {
@@ -39,11 +40,14 @@ export function Navbar() {
           <div className='flex items-center gap-4'>
             {isAuthed ? (
               <>
-                <Link to='/new-story'>
-                  <Button>
-                    <PlusIcon /> New Story
-                  </Button>
-                </Link>
+                {onboarded && (
+                  <Link to='/new-story'>
+                    <Button>
+                      <PlusIcon /> New Story
+                    </Button>
+                  </Link>
+                )}
+
                 <ProfileButton name={name} />
               </>
             ) : (

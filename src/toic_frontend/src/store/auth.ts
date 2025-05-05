@@ -18,7 +18,7 @@ type AuthAction = {
   hydrate: () => Promise<void>
   login: () => Promise<void>
   logout: () => Promise<void>
-  onboard: (args: OnboardingArgsBuilder) => Promise<void>
+  onboard: (args: OnboardingArgsBuilder) => Promise<boolean>
 }
 
 const initialState: AuthState = {
@@ -69,14 +69,16 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     await auth.logout()
     set({ isAuthenticated: false, principal: null, user: null })
   },
-  onboard: async ({ name, bio, categories }) => {
+  onboard: async ({ name, bio, categories, code }) => {
     const auth = await authService()
     const nameOpt = optionOf(name)
-    await auth.onboard({
+    const withReferral = await auth.onboard({
       name: nameOpt,
       bio: optionOf(bio),
-      categories: categories.map(mapToCategory)
+      categories: categories.map(mapToCategory),
+      referral_code: optionOf(code)
     })
     set({ user: { name: nameOpt, onboarded: true } })
+    return withReferral
   }
 }))

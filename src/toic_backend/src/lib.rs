@@ -1,5 +1,6 @@
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
+use serde_bytes::ByteBuf;
 use services::{draft::DRAFT_SERVICE, story::STORY_SERVICE, user::USER_SERVICE};
 
 mod memory;
@@ -187,28 +188,38 @@ async fn login() -> ApiResult<User> {
 }
 
 #[update]
-async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<()> {
+async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<bool> {
     let identity = get_and_validate_caller()?;
 
+    let ref_code = args.referral_code.clone();
     USER_SERVICE
         .complete_onboarding(identity, args)
         .map_err(api_err)?;
 
-    LEDGER_SERVICE
-        .mint(TransferArg {
-            from_subaccount: None,
-            to: identity.into(),
-            fee: None,
-            created_at_time: None,
-            memo: None,
-            amount: 1000_usize.into(),
-        })
-        .map_err(|e| ServiceError::InternalError {
-            reason: format!("{:?}", e),
-        })
-        .map_err(api_err)?;
+    if let Some(code) = ref_code {
+        // todo: MgM rewards
+        LEDGER_SERVICE
+            .mint(TransferArg {
+                from_subaccount: None,
+                to: identity.into(),
+                fee: None,
+                created_at_time: None,
+                memo: Some(ByteBuf::from(code.clone()).into()),
+                amount: 1000_usize.into(),
+            })
+            .map_err(|e| ServiceError::InternalError {
+                reason: format!("{:?}", e),
+            })
+            .map_err(api_err)?;
+        return Ok(true);
+    }
 
-    Ok(())
+    Ok(false)
+}
+
+#[query]
+fn debug_drafting() -> (Vec<Draft>, Vec<StoryContent>) {
+    DRAFT_SERVICE.debug_drafts()
 }
 
 export_candid!();
