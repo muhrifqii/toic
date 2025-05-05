@@ -202,9 +202,11 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
         set({ saving: false })
         throw 'Saving failed'
       }
+      console.log('create draft with id', draft.id)
       return set({ selectedId: encodeId(draft.id), saving: false, draftTitle, draftContent, category, description })
     }
     const actualId = decodeId(selectedId)
+    console.log('mau update', actualId)
     const result = await toic_backend.update_draft(actualId, saveArgs)
     const [, err] = unwrapResult(result)
     if (err) {

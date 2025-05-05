@@ -121,7 +121,7 @@ where
     }
 
     fn update(&self, mut value: V) -> RepositoryResult<V> {
-        if self.exists(&value.id()) {
+        if !self.exists(&value.id()) {
             return Err(RepositoryError::NotFound);
         }
 

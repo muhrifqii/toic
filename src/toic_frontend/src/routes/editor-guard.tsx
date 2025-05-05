@@ -4,6 +4,7 @@ import { NewStoryIdPlaceholder, useDraftingStore } from '@/store/drafting'
 import { PropWithChild } from '@/types/ui'
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
+import RouteAuthGuard from './auth-guard'
 
 function isEditingPath(pathname: string): boolean {
   return pathname.startsWith('/x/') && pathname.endsWith('/edit')
@@ -24,6 +25,7 @@ export default function RouteEditorGuard({ children }: PropWithChild) {
   const getDraft = useDraftingStore(state => state.getDraft)
   const error = useDraftingStore(state => state.error)
   const errorHandled = useDraftingStore(state => state.errorHandled)
+  const prevSelected = useDraftingStore(state => state.selectedId)
 
   useEffect(() => {
     console.log('trigger param id changed', id)
@@ -47,7 +49,7 @@ export default function RouteEditorGuard({ children }: PropWithChild) {
     }
   }, [id])
 
-  if (!isHydrated || fetching || validating) {
+  if (!isHydrated || (!prevSelected && (fetching || validating))) {
     return <LoadingPage />
   }
 
@@ -55,5 +57,5 @@ export default function RouteEditorGuard({ children }: PropWithChild) {
     return <Navigate to='/404' />
   }
 
-  return children
+  return <RouteAuthGuard>{children}</RouteAuthGuard>
 }
