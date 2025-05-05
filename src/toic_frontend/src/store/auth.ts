@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     }
 
     set(state => {
-      console.log('setting state', state)
+      // console.log('setting user', user)
       return { isAuthenticated, principal, isHydrating: false, isHydrated: true, user }
     })
   },
