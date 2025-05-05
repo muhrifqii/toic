@@ -39,9 +39,9 @@ export default function OnboardingPage() {
           name='name'
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor='name'>Your Name</FormLabel>
+              <FormLabel htmlFor='name'>Your Username</FormLabel>
               <FormControl>
-                <Input placeholder='e.g. John Doe' {...field} />
+                <Input placeholder='e.g. muhrifqii' {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

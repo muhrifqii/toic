@@ -3,8 +3,7 @@ import { Outlet } from 'react-router'
 import { Toaster } from '@/components/ui/sonner'
 import LoadingPage from '@/pages/loading'
 import { useAuthStore } from '@/store/auth'
-import RouteGuard from '@/routes/guard'
-import { Navbar } from '../blocks/navbar'
+import RouteAuthGuard from '@/routes/auth-guard'
 
 export default function RootLayout() {
   const hydrate = useAuthStore(state => state.hydrate)
@@ -15,10 +14,10 @@ export default function RootLayout() {
 
   return (
     <Suspense fallback={<LoadingPage />}>
-      <RouteGuard>
+      <RouteAuthGuard>
         <Toaster duration={3500} position='top-center' richColors />
         <Outlet />
-      </RouteGuard>
+      </RouteAuthGuard>
     </Suspense>
   )
 }

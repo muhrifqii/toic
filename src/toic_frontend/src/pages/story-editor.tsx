@@ -3,55 +3,53 @@ import { StorySkeleton } from '@/components/blocks/story-skeleton'
 import { StoryEditor } from '@/components/blocks/text-editor'
 import { LoadingButton } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import RouteEditorGuard from '@/routes/editor-guard'
 import { NewStoryIdPlaceholder, useDraftingStore } from '@/store/drafting'
-import { useEffect, useLayoutEffect } from 'react'
-import { useParams } from 'react-router'
+import { useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router'
 import { useDebounceCallback } from 'usehooks-ts'
 
 export default function StoryEditorPage() {
-  const params = useParams()
+  const navigate = useNavigate()
 
-  const setActiveDraft = useDraftingStore(state => state.setActiveDraft)
-  const getDraft = useDraftingStore(state => state.getDraft)
+  const selectedId = useDraftingStore(state => state.selectedId)
   const setTitle = useDraftingStore(state => state.setDraftTitle)
   const setContent = useDraftingStore(state => state.setContent)
   const fetching = useDraftingStore(state => state.fetching)
   const saving = useDraftingStore(state => state.saving)
-  const save = useDraftingStore(state => state.save)
   const publish = useDraftingStore(state => state.publish)
-  const id = params['id']
 
   const setTitleDebounced = useDebounceCallback(setTitle, 1000)
 
   useEffect(() => {
-    console.log('trigger param id changed', id)
-    if (id) {
-      getDraft(id)
-    } else {
-      setActiveDraft(NewStoryIdPlaceholder)
+    if (!selectedId || selectedId === NewStoryIdPlaceholder) {
+      return
     }
+    console.log('should navigate to ', selectedId)
+    // navigate(`/x/${selectedId}/edit`, { replace: true })
+  }, [selectedId])
 
-    return () => {
-      setActiveDraft(null)
-    }
-  }, [id])
-
+  // delete below later
   useEffect(() => {
     useDraftingStore.subscribe((state, prev) => {
       console.log('state changed', state)
     })
   }, [])
+  // delete above later
 
   return (
-    <>
+    <RouteEditorGuard>
       <NavbarEditor>
-        <div className='flex flex-row h-full py-6 justify-stretch items-center min-w-40 gap-4'>
-          <LoadingButton isLoading={fetching} loadingText='Saving'>
+        <div className='flex flex-row h-full py-6 justify-stretch items-center gap-4'>
+          {/* <LoadingButton isLoading={fetching || saving} loadingText='Saving'>
             Save Draft
-          </LoadingButton>
-          <LoadingButton isLoading={fetching} loadingText='Publishing'>
+          </LoadingButton> */}
+          <LoadingButton
+            isLoading={saving}
+            loadingText='Publishing'
+            disabled={fetching || selectedId === NewStoryIdPlaceholder}
+          >
             Publish
           </LoadingButton>
           <Separator orientation='vertical' />
@@ -74,6 +72,6 @@ export default function StoryEditorPage() {
           <StorySkeleton />
         )}
       </div>
-    </>
+    </RouteEditorGuard>
   )
 }

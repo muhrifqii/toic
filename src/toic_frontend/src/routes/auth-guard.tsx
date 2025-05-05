@@ -14,7 +14,7 @@ function hasPermission(path: string, authed: boolean, onboarded: boolean) {
   return true
 }
 
-export default function RouteGuard({ children }: PropWithChild) {
+export default function RouteAuthGuard({ children }: PropWithChild) {
   const { pathname } = useLocation()
   const authed = useAuthStore(state => state.isAuthenticated)
   const isHydrated = useAuthStore(state => state.isHydrated)

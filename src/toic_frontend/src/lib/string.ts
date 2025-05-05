@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer'
+
 export function encodeId(value: BigInt) {
   const str = value.toString()
   return Buffer.from(str, 'binary').toString('base64')
