@@ -19,12 +19,16 @@ export default function MePage() {
   const resetStore = usePersonalStore(state => state.reset)
 
   const getDrafts = usePersonalStore(state => state.getDrafts)
+  const getPublished = usePersonalStore(state => state.getPublished)
 
   const drafts = usePersonalStore(state => state.drafts)
   const fetchingDrafts = usePersonalStore(state => state.fetchingDrafts)
+  const published = usePersonalStore(state => state.published)
+  const fetchingPublished = usePersonalStore(state => state.fetchingPublished)
 
   useEffect(() => {
     getDrafts()
+    getPublished()
     usePersonalStore.subscribe((state, prev) => {
       console.log('state changed', state)
     })

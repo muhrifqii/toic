@@ -4,4 +4,18 @@ type CandidOption<T> = [] | [T]
 type CandidResult<T, E> = { Ok: T } | { Err: E }
 type ApiResult<T> = CandidResult<T, ErrorResponse>
 
-export type { CandidOption, CandidResult, ApiResult }
+type CursorType<T> = [] | [T]
+type DoubleCursorType<T, U> = [] | [[T, U]]
+
+type IdCursorTuple<T> = [CursorType<bigint>, Array<T>]
+type IdTimestampCursorTuple<T> = [DoubleCursorType<bigint, bigint>, Array<T>]
+
+export type {
+  CandidOption,
+  CandidResult,
+  ApiResult,
+  CursorType,
+  DoubleCursorType,
+  IdCursorTuple,
+  IdTimestampCursorTuple
+}

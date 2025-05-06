@@ -1,7 +1,10 @@
 use std::cell::RefCell;
 
 use candid::{CandidType, Principal};
-use ic_stable_structures::{storable::Bound, BTreeMap, Cell, Storable};
+use ic_stable_structures::{
+    storable::{Blob, Bound},
+    BTreeMap, Cell, Storable,
+};
 use serde::{Deserialize, Serialize};
 use strum::EnumString;
 use thiserror::Error;
@@ -111,21 +114,22 @@ impl Storable for Category {
 pub struct StorablePrincipal(pub Principal);
 
 impl Storable for StorablePrincipal {
+    const BOUND: Bound = Blob::<29>::BOUND;
+
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
-        let mut encoded = Vec::new();
-        ciborium::into_writer(&self.0, &mut encoded).unwrap();
-        std::borrow::Cow::Owned(encoded)
+        std::borrow::Cow::Owned(
+            Blob::<29>::try_from(self.0.as_slice())
+                .expect("principal length should not exceed 29 bytes")
+                .to_bytes()
+                .into_owned(),
+        )
     }
 
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
-        Self(ciborium::from_reader(bytes.as_ref()).unwrap())
+        Self(Principal::from_slice(
+            Blob::<29>::from_bytes(bytes).as_slice(),
+        ))
     }
-
-    // to allow tuple stable structure encoding
-    const BOUND: Bound = Bound::Bounded {
-        max_size: 29,
-        is_fixed_size: true,
-    };
 }
 
 #[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
