@@ -17,7 +17,7 @@ use crate::{
     token::{StorableToken, Tokens},
     types::{
         BTreeMapRefCell, Category, RepositoryError, RepositoryResult, Score, SerialRefCell,
-        SortOrder, Story, StoryContent, SupportSize, VMemory,
+        SortOrder, StorablePrincipal, Story, StoryContent, SupportSize, VMemory,
     },
 };
 
@@ -44,13 +44,13 @@ thread_local! {
         )
     );
 
-    static STORY_AUTHOR_INDEX: BTreeMapRefCell<(Principal, Reverse<u64>), ()> = RefCell::new(
+    static STORY_AUTHOR_INDEX: BTreeMapRefCell<(StorablePrincipal, Reverse<u64>), ()> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_AUTHOR_MEM_ID))
         )
     );
 
-    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, Principal), (SupportSize, StorableToken)> = RefCell::new(
+    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, StorablePrincipal), (SupportSize, StorableToken)> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_SUPPORTER_MEM_ID))
         )
@@ -140,13 +140,15 @@ impl IndexRepository<(Category, Reverse<u64>), u64, VMemory> for StoryCategoryIn
 #[derive(Debug, Default)]
 pub struct StoryAuthorIndexRepository;
 
-impl IndexRepository<(Principal, Reverse<u64>), u64, VMemory> for StoryAuthorIndexRepository {
+impl IndexRepository<(StorablePrincipal, Reverse<u64>), u64, VMemory>
+    for StoryAuthorIndexRepository
+{
     type Criteria = Principal;
     type Cursor = u64;
 
     fn with_ref<F, R>(f: F) -> R
     where
-        F: FnOnce(&RefCell<BTreeMap<(Principal, Reverse<u64>), (), VMemory>>) -> R,
+        F: FnOnce(&RefCell<BTreeMap<(StorablePrincipal, Reverse<u64>), (), VMemory>>) -> R,
     {
         STORY_AUTHOR_INDEX.with(f)
     }
@@ -160,8 +162,8 @@ impl IndexRepository<(Principal, Reverse<u64>), u64, VMemory> for StoryAuthorInd
     ) -> Vec<u64> {
         // default sort order is descending by Id (latest first)
         let until_id = cursor.map_or(u64::MAX, |c| c.saturating_sub(1));
-        let start = (criteria, Reverse(until_id));
-        let end = (criteria, Reverse(1));
+        let start = (StorablePrincipal(criteria), Reverse(until_id));
+        let end = (StorablePrincipal(criteria), Reverse(1));
         STORY_AUTHOR_INDEX.with_borrow(|m| {
             m.range(start..=end)
                 .take(limit)
@@ -247,14 +249,16 @@ impl IndexableRepository<Story> for StoryRepository {
     fn remove_indexes(&self, value: &Story) {
         self.category_index
             .remove(&(value.detail.category, Reverse(value.id)));
-        self.author_index.remove(&(value.author, Reverse(value.id)));
+        self.author_index
+            .remove(&(StorablePrincipal(value.author), Reverse(value.id)));
         self.scoring_index.remove(&(value.score, value.id));
     }
 
     fn add_indexes(&self, value: &Story) {
         self.category_index
             .insert((value.detail.category, Reverse(value.id)));
-        self.author_index.insert((value.author, Reverse(value.id)));
+        self.author_index
+            .insert((StorablePrincipal(value.author), Reverse(value.id)));
         self.scoring_index.insert((value.score, value.id));
     }
 
@@ -386,12 +390,19 @@ impl StorySupporterRepository {
     fn find(&self, criteria: (u64, Option<Principal>)) -> Vec<(Principal, SupportSize, Tokens)> {
         let (story_id, supporter_opt) = criteria;
         let range = if let Some(supporter) = supporter_opt {
-            (story_id, supporter)..=(story_id, supporter)
+            (story_id, StorablePrincipal(supporter))..=(story_id, StorablePrincipal(supporter))
         } else {
-            (story_id, Principal::from_slice(&[0]))..=(story_id, Principal::from_slice(&[255; 29]))
+            (story_id, StorablePrincipal(Principal::from_slice(&[0])))
+                ..=(
+                    story_id,
+                    StorablePrincipal(Principal::from_slice(&[255; 29])),
+                )
         };
-        STORY_SUPPORTER_INDEX
-            .with_borrow(|m| m.range(range).map(|((_, p), (v, t))| (p, v, t.0)).collect())
+        STORY_SUPPORTER_INDEX.with_borrow(|m| {
+            m.range(range)
+                .map(|((_, p), (v, t))| (p.0, v, t.0))
+                .collect()
+        })
     }
 
     fn get_story_supporters(&self, id: u64) -> Vec<(Principal, SupportSize, Tokens)> {
@@ -399,7 +410,8 @@ impl StorySupporterRepository {
     }
 
     fn get_story_supporter_size(&self, id: u64, user: Principal) -> Option<(SupportSize, Tokens)> {
-        STORY_SUPPORTER_INDEX.with_borrow(|m| m.get(&(id, user)).map(|(v, t)| (v, t.0)))
+        STORY_SUPPORTER_INDEX
+            .with_borrow(|m| m.get(&(id, StorablePrincipal(user))).map(|(v, t)| (v, t.0)))
     }
 
     fn support_story(
@@ -415,13 +427,15 @@ impl StorySupporterRepository {
             });
         }
 
-        STORY_SUPPORTER_INDEX
-            .with_borrow_mut(|m| m.insert((id, user), (size, StorableToken(tokens))));
+        STORY_SUPPORTER_INDEX.with_borrow_mut(|m| {
+            m.insert((id, StorablePrincipal(user)), (size, StorableToken(tokens)))
+        });
         Ok(size)
     }
 
     fn remove_support(&self, id: u64, user: Principal) -> RepositoryResult<u64> {
-        let old = STORY_SUPPORTER_INDEX.with_borrow_mut(|m| m.remove(&(id, user)));
+        let old =
+            STORY_SUPPORTER_INDEX.with_borrow_mut(|m| m.remove(&(id, StorablePrincipal(user))));
         if old.is_some() {
             Ok(id)
         } else {
@@ -433,7 +447,7 @@ impl StorySupporterRepository {
         let supporters = self.find((id, None));
         STORY_SUPPORTER_INDEX.with_borrow_mut(|m| {
             for (user, _, _) in supporters {
-                m.remove(&(id, user));
+                m.remove(&(id, StorablePrincipal(user)));
             }
         });
     }
