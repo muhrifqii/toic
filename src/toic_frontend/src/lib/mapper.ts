@@ -1,4 +1,4 @@
-import { CandidOption, CandidResult, ApiResult } from '@/types/candid'
+import { CandidOption, CandidResult } from '@/types/candid'
 import { CategoryName } from '@/types/core'
 import { Category } from '@declarations/toic_backend/toic_backend.did'
 
