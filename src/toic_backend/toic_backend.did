@@ -134,6 +134,7 @@ type Story = record {
   id : nat64;
   title : text;
   updated_at : opt nat64;
+  author_name : opt text;
   read_time : nat32;
   created_at : nat64;
   detail : StoryDetail;
@@ -253,6 +254,7 @@ service : {
   login : () -> (Result_14);
   publish_draft : (nat64) -> (Result_15);
   stake : (StakeTokenArgs) -> (Result_11);
+  staked_balance_of : (Account) -> (nat) query;
   support_story : (StoryInteractionArgs) -> (Result_4);
   token_created : () -> (bool) query;
   update_draft : (nat64, SaveDraftArgs) -> (Result_16);

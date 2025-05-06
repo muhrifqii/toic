@@ -14,7 +14,7 @@ type AuthState = {
   principal: string | null
   isHydrating: boolean
   isHydrated: boolean
-  user: Pick<User, 'name' | 'onboarded'> | null
+  user: Pick<User, 'name' | 'bio' | 'onboarded'> | null
   actor: typeof toic_backend
 }
 
@@ -46,7 +46,7 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
     const actor = auth.getActor()
     const isAuthenticated = await auth.isAuthenticated()
     const principal = isAuthenticated ? auth.getPrincipal()?.toText() : null
-    let user: Pick<User, 'name' | 'onboarded'> | null = auth.getUser()
+    let user: AuthState['user'] = auth.getUser()
     if (isAuthenticated) {
       await auth.backendLogin()
       user = auth.getUser()
@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
       categories: categories.map(mapToCategory),
       referral_code: optionOf(code)
     })
-    set({ user: { name: nameOpt, onboarded: true } })
+    set({ user: { name: nameOpt, onboarded: true, bio: optionOf(bio) } })
     return withReferral
   }
 }))

@@ -18,7 +18,7 @@ use crate::{
     token::{LedgerService, LEDGER_SERVICE},
     types::{
         Category, RepositoryError, Score, ServiceError, ServiceResult, SortOrder, Story,
-        StoryContent, StoryInteractionArgs, SupportSize, UserOutline,
+        StoryContent, StoryInteractionArgs, SupportSize, User, UserOutline,
     },
 };
 
@@ -65,6 +65,7 @@ impl StoryService {
         let story = self
             .story_repository
             .get(id)
+            .map(|s| self.add_author_name(s))
             .ok_or(ServiceError::StoryNotFound)?;
         let content = self
             .story_content_repository
@@ -158,6 +159,10 @@ impl StoryService {
             .story_repository
             .get_stories_by_categories(vec![category], SortOrder::default(), vec![cursor], limit)
             .map_err(map_story_err)?;
+        let stories = stories
+            .into_iter()
+            .map(|s| self.add_author_name(s))
+            .collect_vec();
         Ok((stories.last().map(|s| s.id), stories))
     }
 
@@ -175,6 +180,7 @@ impl StoryService {
         let stories = stories
             .into_iter()
             .sorted_by_cached_key(|s| calculate_complete_scoring(s.score, s.created_at, now))
+            .map(|s| self.add_author_name(s))
             .rev()
             .collect_vec();
         Ok((next_cursor, stories))
@@ -227,6 +233,15 @@ impl StoryService {
             .await
             .map_err(|e| ServiceError::AiModelError(e))?;
         Ok(description)
+    }
+
+    fn add_author_name(&self, mut s: Story) -> Story {
+        s.author_name = self
+            .user_service
+            .get_user(&s.author)
+            .unwrap_or(User::new(Principal::anonymous(), 0))
+            .name;
+        s
     }
 }
 

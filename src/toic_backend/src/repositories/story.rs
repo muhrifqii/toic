@@ -421,7 +421,7 @@ impl StorySupporterRepository {
         size: SupportSize,
         tokens: Tokens,
     ) -> RepositoryResult<SupportSize> {
-        if size == 0 {
+        if size == 0 && tokens == 0_usize {
             return Err(RepositoryError::IllegalArgument {
                 reason: "Support size must be greater than 0".to_string(),
             });

@@ -633,6 +633,11 @@ fn stake_account_address() -> Account {
     }
 }
 
+#[query]
+fn staked_balance_of(account: Account) -> Tokens {
+    get_locked_balance(account)
+}
+
 #[update]
 fn stake(arg: StakeTokenArgs) -> Result<BlockIndex, TransferError> {
     let from = Account {

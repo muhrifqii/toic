@@ -205,7 +205,7 @@ async fn complete_onboarding(args: OnboardingArgs) -> ApiResult<bool> {
                 fee: None,
                 created_at_time: None,
                 memo: Some(ByteBuf::from(code.clone()).into()),
-                amount: 1_001_100_usize.into(),
+                amount: 101_101_usize.into(),
             })
             .map_err(|e| ServiceError::InternalError {
                 reason: format!("{:?}", e),

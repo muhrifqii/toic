@@ -8,6 +8,8 @@ import { StorySkeleton } from '../blocks/story-skeleton'
 import { Button } from '../ui/button'
 import { useAuthStore } from '@/store/auth'
 import { Separator } from '../ui/separator'
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
+import { unwrapOption } from '@/lib/mapper'
 
 export default function HomeLayout() {
   const getRecommended = useFeedStore(state => state.getRecommended)
@@ -47,8 +49,7 @@ export default function HomeLayout() {
       <Separator className='mt-8' />
 
       {/* Recommended Feed */}
-      <section>
-        <h2 className='text-2xl font-semibold'>Recommended for you</h2>
+      <section className='flex flex-row'>
         {recommendedLoading ? (
           <StorySkeleton />
         ) : recommendedStories.length === 0 ? (
@@ -60,7 +61,8 @@ export default function HomeLayout() {
               id: encodeId(p.id),
               detail: p.detail,
               date: p.created_at,
-              readTime: p.read_time
+              readTime: p.read_time,
+              author: unwrapOption(p.author_name)
             }))
             .map(story => <RowItemContent {...story} key={story.id} />)
         )}
@@ -118,6 +120,7 @@ type RowItemContentProp = {
   date: bigint
   readTime: number
   detail: StoryDetail | null
+  author: string | null
 }
 
 function RowItemContent(prop: RowItemContentProp) {
@@ -125,16 +128,30 @@ function RowItemContent(prop: RowItemContentProp) {
   return (
     <Link
       to={`/p/${prop.id}`}
-      className='flex flex-col items-start gap-2 border-b py-6 text-sm leading-tight last:border-b-0'
+      className='flex flex-row items-center justify-between border-b py-6 text-sm leading-tight last:border-b-0 w-full'
     >
-      <span className='line-clamp-2 font-semibold text-2xl'>{prop.title}</span>
-      <span className='line-clamp-2 whitespace-break-spaces text-lg text-muted-foreground'>
-        {prop.detail?.description}
-      </span>
-      <div className='flex w-full items-center gap-2'>
-        <span className='text-xs'>{prop.readTime} minute read</span>
-        <Dot className='size-4' />
-        <span className='text-xs'>{fmtDate}</span>
+      <div className='flex flex-col items-start gap-2'>
+        <span className='line-clamp-2 font-semibold text-2xl'>{prop.title}</span>
+        <span className='line-clamp-2 whitespace-break-spaces text-lg text-muted-foreground'>
+          {prop.detail?.description}
+        </span>
+        <div className='flex w-full items-center gap-2'>
+          <span className='text-xs'>{prop.readTime} minute read</span>
+          <Dot className='size-4' />
+          <span className='text-xs'>{fmtDate}</span>
+        </div>
+      </div>
+      <div className='flex flex-col items-center gap-2'>
+        <Avatar className='size-10 border-1 border-primary'>
+          <AvatarImage
+            src={prop.author ? `https://avatar.iran.liara.run/public?username=${prop.author}` : undefined}
+            alt={`${prop.author}'s avatar`}
+          />
+          <AvatarFallback className='text-4xl font-bold text-primary bg-primary-foreground'>
+            {prop.author?.substring(0, 2)?.toUpperCase() ?? '??'}
+          </AvatarFallback>
+        </Avatar>
+        <span className='text-xs text-foreground'>{prop.author}</span>
       </div>
     </Link>
   )

@@ -2,7 +2,7 @@ import { Story, StoryContent } from '@declarations/toic_backend/toic_backend.did
 import { create } from 'zustand'
 import { beService } from './auth'
 import { decodeId, encodeId } from '@/lib/string'
-import { mapFromCategory, unwrapResult } from '@/lib/mapper'
+import { mapFromCategory, unwrapOption, unwrapResult } from '@/lib/mapper'
 import { CategoryName } from '@/types/core'
 
 type StoryStorable = {
@@ -14,6 +14,7 @@ type StoryStorable = {
   createdAt: bigint
   totalSupport: number
   totalTip: bigint
+  author: string | null
 }
 
 type FeedState = {
@@ -23,7 +24,9 @@ type FeedState = {
   currentStory: StoryStorable | null
   fetching: boolean
   fetchingRecommended: boolean
-  error: '404' | '401' | null
+  error: '404' | '401' | 'api' | null
+  errorMessage: string | null
+  commonLoading: boolean
 }
 
 type FeedAction = {
@@ -31,7 +34,8 @@ type FeedAction = {
   getStory: (id: string) => Promise<void>
   resetCurrent: () => void
   reset: () => void
-  support: () => void
+  support: (n: number) => void
+  donate: (amount: bigint) => void
 }
 
 const initialState: FeedState = {
@@ -40,7 +44,9 @@ const initialState: FeedState = {
   currentStory: null,
   fetching: false,
   fetchingRecommended: false,
-  error: null
+  error: null,
+  errorMessage: null,
+  commonLoading: false
 }
 
 export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
@@ -62,7 +68,7 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
     set({ recommended: vec })
   },
   getStory: async (id: string) => {
-    set({ fetching: true })
+    set({ fetching: true, error: null, errorMessage: null })
     const actualId = decodeId(id)
     const result = await beService().get_story(actualId)
     const [tuple, err] = unwrapResult(result)
@@ -85,7 +91,8 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
       readTime: outline.read_time,
       createdAt: outline.created_at,
       totalSupport: outline.total_support,
-      totalTip: outline.total_tip_support
+      totalTip: outline.total_tip_support,
+      author: unwrapOption(outline.author_name)
     }
     set({ currentStory: story, currentId: encodeId(outline.id) })
   },
@@ -96,5 +103,50 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
     set({ ...initialState })
   },
 
-  support: async () => {}
+  support: async (n: number) => {
+    const id = get().currentId
+    if (id == null) {
+      return
+    }
+
+    set({ error: null, errorMessage: null, commonLoading: true })
+
+    const result = await beService().support_story({
+      id: decodeId(id),
+      tip: [],
+      support: [n]
+    })
+    const [, err] = unwrapResult(result)
+    set({ commonLoading: false })
+    if (err) {
+      console.error(err.message)
+      set({ error: 'api', errorMessage: err.message })
+      return
+    }
+    set(prev => ({ currentStory: { ...prev.currentStory!, totalSupport: prev.currentStory!.totalSupport + n } }))
+  },
+
+  donate: async (amount: bigint) => {
+    const id = get().currentId
+    if (id == null) {
+      return
+    }
+
+    set({ error: null, errorMessage: null, commonLoading: true })
+
+    const result = await beService().support_story({
+      id: decodeId(id),
+      tip: [amount],
+      support: []
+    })
+    const [, err] = unwrapResult(result)
+    set({ commonLoading: false })
+    if (err) {
+      console.error(err.message)
+      set({ error: 'api', errorMessage: err.message })
+      return
+    }
+
+    set(prev => ({ currentStory: { ...prev.currentStory!, totalTip: prev.currentStory!.totalTip + amount } }))
+  }
 }))

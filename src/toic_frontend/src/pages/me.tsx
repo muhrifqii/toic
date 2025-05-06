@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletStore } from '@/store/wallet'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 
 type TabMenu = 'published' | 'draft' | 'supported'
 
@@ -84,24 +85,41 @@ function ProfileView() {
   const name = unwrapOption(user?.name)
   const getBalance = useWalletStore(state => state.getBalance)
   const balance = useWalletStore(state => state.token)
+  const getLockedBalance = useWalletStore(state => state.getLockedBalance)
+  const staked = useWalletStore(state => state.lockedToken)
 
   useEffect(() => {
     getBalance()
+    getLockedBalance()
   }, [])
 
   return (
-    <div className='flex flex-col items-center bg-primary to-primary p-6 gap-2'>
-      <Avatar className='size-48 border-primary-foreground border-4'>
-        <AvatarImage src={name ? `https://avatar.iran.liara.run/public?username=${name}` : undefined} />
-        <AvatarFallback className='font-bold text-primary text-4xl'>
+    <div className='flex flex-col items-center bg-gradient-to-b from-primary to-primary/90 p-8 gap-4 rounded-b-2xl shadow-md'>
+      <Avatar className='size-40 border-4 border-primary-foreground shadow'>
+        <AvatarImage
+          src={name ? `https://avatar.iran.liara.run/public?username=${name}` : undefined}
+          alt={`${name}'s avatar`}
+        />
+        <AvatarFallback className='text-4xl font-bold text-primary bg-primary-foreground'>
           {name?.substring(0, 2)?.toUpperCase() ?? '??'}
         </AvatarFallback>
       </Avatar>
-      <div className='text-3xl text-primary-foreground font-medium'>{name}</div>
-      <Badge className='flex flex-row items-center gap-1 text-primary-foreground bg-background px-4 cursor-default'>
-        <img src='/toic_token.png' className='size-8' />
-        <span className='text-xl font-semibold mr-2'>{tokenDisplay(balance)}</span>
-      </Badge>
+
+      <div className='text-3xl font-semibold text-primary-foreground'>{name}</div>
+
+      <div className='flex items-center gap-4 bg-background px-6 py-2 rounded-full shadow-inner'>
+        <div className='flex items-center gap-2'>
+          <img src='/toic_token.png' alt='Token' className='size-6' />
+          <span className='text-lg font-semibold text-primary'>{tokenDisplay(balance)}</span>
+        </div>
+
+        <Separator orientation='vertical' className='!h-8' />
+
+        <div className='flex items-center gap-2 opacity-70'>
+          <img src='/toic_token.png' alt='Staked Token' className='size-6 grayscale' />
+          <span className='text-lg font-semibold text-muted-foreground'>{tokenDisplay(staked)}</span>
+        </div>
+      </div>
     </div>
   )
 }

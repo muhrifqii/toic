@@ -9,6 +9,7 @@ TOIC is a decentralized platform for writers and readers, enabling creators to p
   <p>
 
 ![RC](https://img.shields.io/badge/rustc-1.81+-ab6000.svg)
+[![codecov](https://codecov.io/gh/muhrifqii/toic/graph/badge.svg?token=5b5LPMS3Pb)](https://codecov.io/gh/muhrifqii/toic)
 
 </p>
 </div>

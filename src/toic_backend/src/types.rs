@@ -192,6 +192,7 @@ pub struct Story {
     pub updated_at: Option<u64>,
     pub read_time: u32,
     pub score: Score,
+    pub author_name: Option<String>,
 }
 
 impl Storable for Story {
@@ -239,6 +240,7 @@ impl Story {
             updated_at: None,
             read_time: draft.read_time,
             score: 0,
+            author_name: None,
         }
     }
 }
