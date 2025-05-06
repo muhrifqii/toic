@@ -30,12 +30,13 @@ import lexicalTheme from '../themes/lexical'
 import { EditorFloatingMenu } from './editor-floating-menu'
 import { useDebounceCallback } from 'usehooks-ts'
 
-const initialConfig: (initial?: string) => InitialConfigType = initial => ({
+const initialConfig: (initial?: string, editable?: boolean) => InitialConfigType = (initial, editable) => ({
   namespace: 'toic-story',
   theme: lexicalTheme,
   onError(error: Error) {
     throw error
   },
+  editable,
   nodes: [ListNode, ListItemNode, QuoteNode, HeadingNode, HorizontalRuleNode, LinkNode],
   editorState: initial ? () => $convertFromMarkdownString(initial, transformers) : undefined
 })
@@ -56,9 +57,10 @@ const transformers: Transformer[] = [
 type StoryEditorProps = {
   onChange?: (text: string) => void
   initialMd?: string
+  editable?: boolean
 }
 
-function StoryEditor({ onChange, initialMd }: StoryEditorProps) {
+function StoryEditor({ onChange, initialMd, editable = true }: StoryEditorProps) {
   const onChangeListener = useDebounceCallback((state: EditorState) => {
     state.read(() => {
       const mds = $convertToMarkdownString(transformers)
@@ -67,7 +69,7 @@ function StoryEditor({ onChange, initialMd }: StoryEditorProps) {
   }, 1000)
 
   return (
-    <LexicalComposer initialConfig={initialConfig(initialMd)}>
+    <LexicalComposer initialConfig={initialConfig(initialMd, editable)}>
       <div className='relative'>
         <RichTextPlugin
           contentEditable={

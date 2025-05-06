@@ -6,7 +6,7 @@ import { StoryDetail } from '@declarations/toic_backend/toic_backend.did'
 import { useEffect } from 'react'
 import { format } from 'date-fns'
 import { Link } from 'react-router'
-import { encodeId } from '@/lib/string'
+import { encodeId, formatDate, tokenDisplay } from '@/lib/string'
 import { Dot } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore } from '@/store/auth'
@@ -100,7 +100,7 @@ function ProfileView() {
       <div className='text-3xl text-primary-foreground font-medium'>{name}</div>
       <Badge className='flex flex-row items-center gap-1 text-primary-foreground bg-background px-4 cursor-default'>
         <img src='/toic_token.png' className='size-8' />
-        <span className='text-xl font-semibold mr-2'>{balance ?? '0'}</span>
+        <span className='text-xl font-semibold mr-2'>{tokenDisplay(balance)}</span>
       </Badge>
     </div>
   )
@@ -116,7 +116,7 @@ type RowItemContentProp = {
 }
 
 function RowItemContent(prop: RowItemContentProp) {
-  const fmtDate = format(Number(prop.date / 1_000_000n), 'dd MMM yyyy')
+  const fmtDate = formatDate(prop.date)
   const dateText =
     prop.menu === 'draft'
       ? `Last edited on ${fmtDate}`

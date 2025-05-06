@@ -8,6 +8,7 @@ const OnboardingPage = lazy(() => import('@/pages/onboarding'))
 const StoryEditorPage = lazy(() => import('@/pages/story-editor'))
 const MainLayout = lazy(() => import('@/components/layouts/main'))
 const MePage = lazy(() => import('@/pages/me'))
+const StoryPage = lazy(() => import('@/pages/story'))
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +19,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: LandingPage },
           { path: 'onboarding', Component: OnboardingPage },
-          { path: 'me', Component: MePage }
+          { path: 'me', Component: MePage },
+          { path: 'p/:id', Component: StoryPage }
         ]
       },
       {
