@@ -18,6 +18,7 @@ type DraftingState = {
   description: string | null
   error: '404' | string | null
   readTime: number
+  aiLoading: boolean
 }
 
 type DraftingAction = {
@@ -30,6 +31,7 @@ type DraftingAction = {
   getDraft: (id: string) => Promise<void>
   publish: () => Promise<string>
   assistAiDescription: () => void
+  assistAiStory: () => void
   errorHandled: () => void
 }
 
@@ -43,7 +45,8 @@ const initialState: DraftingState = {
   category: null,
   description: null,
   error: null,
-  readTime: 0
+  readTime: 0,
+  aiLoading: false
 }
 
 export const NewStoryIdPlaceholder = 'itisnewstory'
@@ -303,11 +306,37 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       console.error('id is empty')
       return
     }
-    const result = await beService().assist_action({ GenerateDescription: decodeId(id) })
+    set({ aiLoading: true })
+    const actualId = decodeId(id)
+    const result = await beService().assist_action({ GenerateDescription: actualId })
     const [str, err] = unwrapResult(result)
+    set({ aiLoading: false })
     if (!!err || !str) {
       console.error(err?.message ?? 'empty result')
+      set({ error: err?.message ?? 'Cannot use this function at the moment' })
+      return
     }
-    set({ description: str })
+    let desc = str
+    if (str.startsWith('\"')) {
+      desc = str.substring(1, str.length - 1)
+    }
+    set({ description: desc })
+  },
+  assistAiStory: async () => {
+    const id = get().selectedId
+    if (!id) {
+      console.error('id is empty')
+      return
+    }
+    set({ aiLoading: true })
+    const actualId = decodeId(id)
+    const result = await beService().assist_action({ ExpandWriting: actualId })
+    const [str, err] = unwrapResult(result)
+    set({ aiLoading: true })
+    if (!!err || !str) {
+      console.error(err?.message ?? 'empty result')
+      set({ error: err?.message ?? 'Cannot use this function at the moment' })
+    }
+    set(prev => ({ draftContent: prev.draftContent ?? '' + str }))
   }
 }))

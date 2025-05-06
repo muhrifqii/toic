@@ -16,6 +16,6 @@ export function tokenDisplay(token?: bigint | string | number | null) {
   return numericValue.toLocaleString('en-US')
 }
 
-export function formatDate(nanos: bigint, fmt: string = 'dd MMM yyyy') {
+export function formatDate(nanos: bigint, fmt: string = 'd MMM yyyy') {
   return fns(Number(nanos / 1_000_000n), fmt)
 }

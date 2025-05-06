@@ -17,7 +17,7 @@ use crate::{
     token::{StorableToken, Tokens},
     types::{
         BTreeMapRefCell, Category, RepositoryError, RepositoryResult, Score, SerialRefCell,
-        SortOrder, StorablePrincipal, Story, StoryContent, SupportSize, VMemory,
+        SortOrder, StorablePrincipal, Story, StoryContent, SupportGiven, SupportSize, VMemory,
     },
 };
 
@@ -50,7 +50,7 @@ thread_local! {
         )
     );
 
-    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, StorablePrincipal), (SupportSize, StorableToken)> = RefCell::new(
+    static STORY_SUPPORTER_INDEX: BTreeMapRefCell<(u64, StorablePrincipal), SupportGiven> = RefCell::new(
         BTreeMap::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(IDX_STORY_SUPPORTER_MEM_ID))
         )
@@ -400,7 +400,7 @@ impl StorySupporterRepository {
         };
         STORY_SUPPORTER_INDEX.with_borrow(|m| {
             m.range(range)
-                .map(|((_, p), (v, t))| (p.0, v, t.0))
+                .map(|((_, p), sup)| (p.0, sup.support, sup.token))
                 .collect()
         })
     }
@@ -410,8 +410,10 @@ impl StorySupporterRepository {
     }
 
     fn get_story_supporter_size(&self, id: u64, user: Principal) -> Option<(SupportSize, Tokens)> {
-        STORY_SUPPORTER_INDEX
-            .with_borrow(|m| m.get(&(id, StorablePrincipal(user))).map(|(v, t)| (v, t.0)))
+        STORY_SUPPORTER_INDEX.with_borrow(|m| {
+            m.get(&(id, StorablePrincipal(user)))
+                .map(|sup| (sup.support, sup.token))
+        })
     }
 
     fn support_story(
@@ -428,7 +430,10 @@ impl StorySupporterRepository {
         }
 
         STORY_SUPPORTER_INDEX.with_borrow_mut(|m| {
-            m.insert((id, StorablePrincipal(user)), (size, StorableToken(tokens)))
+            m.insert(
+                (id, StorablePrincipal(user)),
+                SupportGiven::new(size, tokens),
+            )
         });
         Ok(size)
     }

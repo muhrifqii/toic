@@ -24,6 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
+import { toast } from 'sonner'
 import { useDebounceCallback } from 'usehooks-ts'
 
 export default function StoryEditorPage() {
@@ -88,6 +89,11 @@ function NavbarArea() {
   const fetching = useDraftingStore(state => state.fetching)
   const publishing = useDraftingStore(state => state.publishing)
   const publish = useDraftingStore(state => state.publish)
+  const aiForDescription = useDraftingStore(state => state.assistAiDescription)
+  const aiForGeneration = useDraftingStore(state => state.assistAiStory)
+  const aiLoading = useDraftingStore(state => state.aiLoading)
+  const error = useDraftingStore(state => state.error)
+  const handleError = useDraftingStore(state => state.errorHandled)
 
   const form = useForm<PublishSingValues>({
     resolver: zodResolver(publishSchema),
@@ -99,6 +105,13 @@ function NavbarArea() {
 
     form.reset({ description: detailDescription ?? '', category: detailCategory ?? undefined })
   }, [detailDescription, detailCategory])
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+      handleError()
+    }
+  }, [error])
 
   const onSubmitPublish = async (val: PublishSingValues) => {
     await setDetail(val)
@@ -144,7 +157,9 @@ function NavbarArea() {
                           <Textarea placeholder='Description' {...field} />
                         </FormControl>
                         <FormMessage />
-                        <LoadingButton variant='outline'>Generate using AI</LoadingButton>
+                        <LoadingButton variant='secondary' onClick={aiForDescription} isLoading={aiLoading}>
+                          Generate description using AI
+                        </LoadingButton>
                       </FormItem>
                     )}
                   />
@@ -182,6 +197,13 @@ function NavbarArea() {
                       </FormItem>
                     )}
                   />
+                  <LoadingButton
+                    variant='default'
+                    onClick={() => toast.info('Feature comming soon!')}
+                    isLoading={aiLoading}
+                  >
+                    Expand Writing using AI
+                  </LoadingButton>
                 </div>
                 <SheetFooter className='mt-auto flex gap-2 flex-col space-x-0'>
                   <LoadingButton
@@ -190,7 +212,7 @@ function NavbarArea() {
                     className='w-full'
                     loadingText='Publishing'
                     isLoading={publishing || form.formState.isSubmitting}
-                    disabled={!form.formState.isValid}
+                    disabled={!form.formState.isValid || aiLoading}
                   >
                     Publish Now
                   </LoadingButton>

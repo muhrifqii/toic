@@ -85,8 +85,9 @@ impl UserService {
             .ledger_service
             .locked_balance_of(identity.clone().into());
         if staked < 1_000_000_usize {
-            return Err(ServiceError::IdentityUnauthorized {
-                identity: identity.to_string(),
+            return Err(ServiceError::UnprocessableEntity {
+                reason: "You need to stake at least 1 million of your token to unlock this feature"
+                    .to_string(),
             });
         }
         Ok(())

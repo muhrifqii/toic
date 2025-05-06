@@ -150,7 +150,7 @@ function RowItemContent(prop: RowItemContentProp) {
             src={prop.author ? `https://avatar.iran.liara.run/public?username=${prop.author}` : undefined}
             alt={`${prop.author}'s avatar`}
           />
-          <AvatarFallback className='text-4xl font-bold text-primary bg-primary-foreground'>
+          <AvatarFallback className='text-md text-primary bg-primary-foreground'>
             {prop.author?.substring(0, 2)?.toUpperCase() ?? '??'}
           </AvatarFallback>
         </Avatar>

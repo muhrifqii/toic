@@ -24,30 +24,17 @@ export default function StoryPage() {
   const reset = useFeedStore(state => state.resetCurrent)
   const getStory = useFeedStore(state => state.getStory)
   const support = useFeedStore(state => state.support)
-  const donate = useFeedStore(state => state.donate)
   const story = useFeedStore(state => state.currentStory)
   const fetching = useFeedStore(state => state.fetching)
   const error = useFeedStore(state => state.error)
 
-  const [supportCount, setSupportCount] = useState(0)
   const [donationDialogOpen, setDonationDialogOpen] = useState(false)
-
-  const supportDebounced = useDebounceCallback(support, 1200)
 
   useEffect(() => {
     return () => {
       reset()
     }
   }, [])
-
-  useEffect(() => {
-    if (supportCount <= 0) {
-      return
-    }
-    const c = supportCount
-    supportDebounced(c)
-    setSupportCount(0)
-  }, [supportCount])
 
   useEffect(() => {
     if (id) {
@@ -97,12 +84,7 @@ export default function StoryPage() {
             <div className='flex items-center justify-between gap-4 py-4'>
               <div className='flex items-center gap-4'>
                 <div className='flex gap-3'>
-                  <Button
-                    id='support'
-                    variant='ghost'
-                    className='rounded-full'
-                    onClick={() => setSupportCount(prev => prev + 1)}
-                  >
+                  <Button id='support' variant='ghost' className='rounded-full' onClick={() => support(1)}>
                     <ThumbsUp className='size-5' />
                   </Button>
                   <Label>{story?.totalSupport ?? '-'}</Label>
@@ -111,7 +93,7 @@ export default function StoryPage() {
                   <Button id='tip' variant='ghost' className='rounded-full' onClick={() => setDonationDialogOpen(true)}>
                     <HeartHandshake className='size-5' />
                   </Button>
-                  <Label>{tokenDisplay(story?.totalSupport)}</Label>
+                  <Label>{tokenDisplay(story?.totalTip)}</Label>
                 </div>
               </div>
               <div className='flex items-center gap-2'>

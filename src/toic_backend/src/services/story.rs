@@ -10,8 +10,11 @@ use crate::utils::mocks::{caller, timestamp};
 #[cfg(any(not(test), rust_analyzer))]
 use crate::utils::timestamp;
 use crate::{
-    repositories::story::{
-        StoryContentRepository, StoryRepository, STORY_CONTENT_REPOSITORY, STORY_REPOSITORY,
+    repositories::{
+        draft::{DraftContentRepository, DRAFT_CONTENT_REPOSITORY},
+        story::{
+            StoryContentRepository, StoryRepository, STORY_CONTENT_REPOSITORY, STORY_REPOSITORY,
+        },
     },
     services::user::USER_SERVICE,
     structure::{AuditableRepository, BinaryTreeRepository},
@@ -33,6 +36,7 @@ lazy_static! {
     pub static ref STORY_SERVICE: Arc<StoryService> = Arc::new(StoryService::new(
         STORY_REPOSITORY.clone(),
         STORY_CONTENT_REPOSITORY.clone(),
+        DRAFT_CONTENT_REPOSITORY.clone(),
         LEDGER_SERVICE.clone(),
         USER_SERVICE.clone(),
     ));
@@ -42,6 +46,7 @@ lazy_static! {
 pub struct StoryService {
     story_repository: Arc<StoryRepository>,
     story_content_repository: Arc<StoryContentRepository>,
+    draft_content_repository: Arc<DraftContentRepository>,
     ledger_service: Arc<LedgerService>,
     user_service: Arc<UserService>,
 }
@@ -50,12 +55,15 @@ impl StoryService {
     pub fn new(
         story_repository: Arc<StoryRepository>,
         story_content_repository: Arc<StoryContentRepository>,
+
+        draft_repository: Arc<DraftContentRepository>,
         ledger_service: Arc<LedgerService>,
         user_service: Arc<UserService>,
     ) -> Self {
         Self {
             story_repository,
             story_content_repository,
+            draft_content_repository: draft_repository,
             ledger_service,
             user_service,
         }
@@ -78,10 +86,10 @@ impl StoryService {
         &self,
         args: StoryInteractionArgs,
         identity: Principal,
-    ) -> ServiceResult<()> {
+    ) -> ServiceResult<bool> {
         if args.support.is_none() && args.tip.is_none() {
             // non-strict check, fail early with success result
-            return Ok(());
+            return Ok(false);
         }
 
         let mut story = self
@@ -95,7 +103,7 @@ impl StoryService {
             .map_err(map_story_err)?
             .unwrap_or_default();
         if support_given >= MAX_STORY_SUPPORT_GIVEN {
-            return Ok(());
+            return Ok(false);
         }
         let user_supporter = self.user_service.get_user(&identity)?;
         let category_scoring = calculate_category_matching_score(
@@ -133,7 +141,7 @@ impl StoryService {
                     .support_story(args.id, identity, support_given, tip_given)
             })
             .map_err(map_story_err)?;
-        Ok(())
+        Ok(true)
     }
 
     pub fn get_stories_by_author(
@@ -210,7 +218,7 @@ impl StoryService {
     ) -> ServiceResult<String> {
         self.user_service.ensure_ai_enabled(&identity)?;
         let content = self
-            .story_content_repository
+            .draft_content_repository
             .get(id)
             .ok_or(ServiceError::StoryNotFound)?;
         let expansion = expand_paragraph(content.content)
@@ -226,7 +234,7 @@ impl StoryService {
     ) -> ServiceResult<String> {
         self.user_service.ensure_ai_enabled(&identity)?;
         let content = self
-            .story_content_repository
+            .draft_content_repository
             .get(id)
             .ok_or(ServiceError::StoryNotFound)?;
         let description = write_story_description(content.content)

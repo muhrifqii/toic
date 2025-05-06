@@ -142,7 +142,7 @@ fn get_stories_by_category(args: FetchStoriesArgs) -> ApiResult<(Option<u64>, Ve
 }
 
 #[update]
-async fn support_story(args: StoryInteractionArgs) -> ApiResult<()> {
+async fn support_story(args: StoryInteractionArgs) -> ApiResult<bool> {
     let identity = get_and_validate_caller()?;
 
     STORY_SERVICE

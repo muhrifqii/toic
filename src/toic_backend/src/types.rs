@@ -350,6 +350,31 @@ pub struct Statistics {
     pub category_followers: Vec<(Category, u32)>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SupportGiven {
+    pub support: SupportSize,
+    pub token: Tokens,
+}
+
+impl SupportGiven {
+    pub fn new(support: SupportSize, token: Tokens) -> Self {
+        Self { support, token }
+    }
+}
+
+impl Storable for SupportGiven {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(self, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        ciborium::from_reader(bytes.as_ref()).unwrap()
+    }
+    const BOUND: Bound = Bound::Unbounded;
+}
+
 #[derive(Debug, Clone, CandidType, Deserialize, Serialize, PartialEq, Eq)]
 pub enum SortOrder {
     Asc(SortBy),

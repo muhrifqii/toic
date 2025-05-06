@@ -4,6 +4,7 @@ import { beService } from './auth'
 import { decodeId, encodeId } from '@/lib/string'
 import { mapFromCategory, unwrapOption, unwrapResult } from '@/lib/mapper'
 import { CategoryName } from '@/types/core'
+import { useWalletStore } from './wallet'
 
 type StoryStorable = {
   title: string | null
@@ -148,5 +149,6 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
     }
 
     set(prev => ({ currentStory: { ...prev.currentStory!, totalTip: prev.currentStory!.totalTip + amount } }))
+    useWalletStore.getState().getBalance()
   }
 }))

@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import { format } from 'date-fns'
 import { Link } from 'react-router'
 import { encodeId, formatDate, tokenDisplay } from '@/lib/string'
-import { Dot } from 'lucide-react'
+import { BadgeCheck, BadgePlus, Dot, RocketIcon } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore } from '@/store/auth'
 import { useWalletStore } from '@/store/wallet'
@@ -87,6 +87,7 @@ function ProfileView() {
   const balance = useWalletStore(state => state.token)
   const getLockedBalance = useWalletStore(state => state.getLockedBalance)
   const staked = useWalletStore(state => state.lockedToken)
+  const aiReady = BigInt(staked ?? '0') >= 1_000_000n
 
   useEffect(() => {
     getBalance()
@@ -105,7 +106,14 @@ function ProfileView() {
         </AvatarFallback>
       </Avatar>
 
-      <div className='text-3xl font-semibold text-primary-foreground'>{name}</div>
+      <div className='flex flex-row items-center text-3xl font-semibold text-primary-foreground'>
+        <p>{name}</p>
+        {aiReady && (
+          <div className=''>
+            <BadgeCheck fill='#fff' className='ml-2' />
+          </div>
+        )}
+      </div>
 
       <div className='flex items-center gap-4 bg-background px-6 py-2 rounded-full shadow-inner'>
         <div className='flex items-center gap-2'>

@@ -53,7 +53,6 @@ export function DonateDialog({ open, onClose }: DonateDialogProps) {
   }, [balance, fee])
 
   const onSubmit = async (values: StakingFormValues) => {
-    console.log(values, 'wowo')
     donate(BigInt(values.amount!))
   }
 

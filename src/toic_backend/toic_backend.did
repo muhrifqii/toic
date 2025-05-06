@@ -255,7 +255,7 @@ service : {
   publish_draft : (nat64) -> (Result_15);
   stake : (StakeTokenArgs) -> (Result_11);
   staked_balance_of : (Account) -> (nat) query;
-  support_story : (StoryInteractionArgs) -> (Result_4);
+  support_story : (StoryInteractionArgs) -> (Result_1);
   token_created : () -> (bool) query;
   update_draft : (nat64, SaveDraftArgs) -> (Result_16);
   whoami : () -> (principal) query;
