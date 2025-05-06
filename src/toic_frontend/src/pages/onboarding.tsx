@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useNavigate } from 'react-router'
 import { categoryNames } from '@/types/core'
 import { Input } from '@/components/ui/input'
-import { LoadingButton } from '@/components/ui/button'
+import { Button, LoadingButton } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/store/auth'
 import { useState } from 'react'
@@ -81,7 +81,7 @@ export default function OnboardingPage() {
                   {categoryNames.map(category => {
                     const isSelected = field.value.includes(category)
                     return (
-                      <button
+                      <Button
                         type='button'
                         key={category}
                         onClick={() => {
@@ -92,12 +92,12 @@ export default function OnboardingPage() {
                         }}
                         className={`rounded-lg border p-3 text-sm font-medium transition-all ${
                           isSelected
-                            ? 'bg-primary text-white border-primary'
+                            ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-muted hover:bg-muted/80 border-muted-foreground'
                         }`}
                       >
                         {category}
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>

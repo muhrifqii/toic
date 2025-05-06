@@ -58,13 +58,11 @@ export const useAuthStore = create<AuthState & AuthAction>()((set, get) => ({
   },
   login: async () => {
     const auth = await authService()
-    const actor = auth.getActor()
     try {
       await auth.login()
+      const actor = auth.getActor()
       const principal = auth.getPrincipal()?.toText()
       const user = auth.getUser()
-
-      console.log('logging in user', principal, user)
 
       set({ isAuthenticated: true, principal, user, actor })
     } catch (reason: any) {

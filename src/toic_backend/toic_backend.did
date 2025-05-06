@@ -103,6 +103,7 @@ type Result_12 = variant { Ok : nat; Err : ApproveError };
 type Result_13 = variant { Ok : nat; Err : TransferFromError };
 type Result_14 = variant { Ok : User; Err : ErrorResponse };
 type Result_15 = variant { Ok : Story; Err : ErrorResponse };
+type Result_16 = variant { Ok : nat32; Err : ErrorResponse };
 type Result_2 = variant { Ok : Draft; Err : ErrorResponse };
 type Result_3 = variant { Ok : text; Err : text };
 type Result_4 = variant { Ok; Err : ErrorResponse };
@@ -254,6 +255,6 @@ service : {
   stake : (StakeTokenArgs) -> (Result_11);
   support_story : (StoryInteractionArgs) -> (Result_4);
   token_created : () -> (bool) query;
-  update_draft : (nat64, SaveDraftArgs) -> (Result_4);
+  update_draft : (nat64, SaveDraftArgs) -> (Result_16);
   whoami : () -> (principal) query;
 }
