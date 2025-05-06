@@ -1,6 +1,6 @@
 import { StorySkeleton } from '@/components/blocks/story-skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { unwrapOption } from '@/lib/mapper'
+import { mapFromCategory, unwrapOption } from '@/lib/mapper'
 import { usePersonalStore } from '@/store/personal'
 import { StoryDetail } from '@declarations/toic_backend/toic_backend.did'
 import { useEffect } from 'react'
@@ -145,14 +145,19 @@ function RowItemContent(prop: RowItemContentProp) {
   return (
     <Link
       to={dest}
-      className='flex flex-col items-start gap-2 whitespace-nowrap border-b py-6 text-sm leading-tight last:border-b-0'
+      className='flex flex-row items-center justify-between border-b py-6 text-sm leading-tight last:border-b-0 w-full'
     >
-      <span className='line-clamp-2 font-medium text-base'>{prop.title}</span>
-      <span className='line-clamp-2 w-[260px] whitespace-break-spaces text-xs'>{prop.detail?.description}</span>
-      <div className='flex w-full items-center gap-2'>
-        <span className='text-xs'>{prop.readTime} minute read</span>
-        <Dot className='size-4' />
-        <span className='text-xs'>{dateText}</span>
+      <div className='flex flex-col items-start gap-2'>
+        <span className='line-clamp-2 font-semibold text-2xl'>{prop.title}</span>
+        <span className='line-clamp-2 whitespace-break-spaces text-lg text-muted-foreground'>
+          {prop.detail?.description}
+        </span>
+        <div className='flex w-full items-center gap-2'>
+          {prop.detail?.category && <Badge className='mr-1'>{mapFromCategory(prop.detail.category)}</Badge>}
+          <span className='text-xs'>{prop.readTime} minute read</span>
+          <Dot className='size-4' />
+          <span className='text-xs'>{dateText}</span>
+        </div>
       </div>
     </Link>
   )

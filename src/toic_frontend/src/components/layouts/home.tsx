@@ -9,7 +9,9 @@ import { Button } from '../ui/button'
 import { useAuthStore } from '@/store/auth'
 import { Separator } from '../ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
-import { unwrapOption } from '@/lib/mapper'
+import { mapFromCategory, unwrapOption } from '@/lib/mapper'
+import { Badge } from '../ui/badge'
+import { CategoryName } from '@/types/core'
 
 export default function HomeLayout() {
   const getRecommended = useFeedStore(state => state.getRecommended)
@@ -49,7 +51,7 @@ export default function HomeLayout() {
       <Separator className='mt-8' />
 
       {/* Recommended Feed */}
-      <section className='flex flex-row'>
+      <section className='flex flex-col'>
         {recommendedLoading ? (
           <StorySkeleton />
         ) : recommendedStories.length === 0 ? (
@@ -119,7 +121,7 @@ type RowItemContentProp = {
   title: string
   date: bigint
   readTime: number
-  detail: StoryDetail | null
+  detail: StoryDetail
   author: string | null
 }
 
@@ -136,6 +138,7 @@ function RowItemContent(prop: RowItemContentProp) {
           {prop.detail?.description}
         </span>
         <div className='flex w-full items-center gap-2'>
+          <Badge className='mr-1'>{mapFromCategory(prop.detail.category)}</Badge>
           <span className='text-xs'>{prop.readTime} minute read</span>
           <Dot className='size-4' />
           <span className='text-xs'>{fmtDate}</span>
