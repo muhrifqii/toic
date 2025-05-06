@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form'
 import { stakingFormSchema, StakingFormValues } from '@/lib/validations/staking'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form'
+import { tokenDisplay } from '@/lib/string'
 
 type StakeDialogProps = {
   open: boolean
@@ -60,7 +61,9 @@ export function StakeDialog({ open, onClose }: StakeDialogProps) {
       <DialogContent className='sm:max-w-[425px]'>
         <DialogHeader>
           <DialogTitle>Stake TOIC Token</DialogTitle>
-          <DialogDescription>Your TOIC Token will be locked.</DialogDescription>
+          <DialogDescription>
+            Your TOIC Token will be locked for 10 years, but you will gain more power based on your locked token.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -92,10 +95,10 @@ export function StakeDialog({ open, onClose }: StakeDialogProps) {
               />
               <div className='flex w-full text-muted-foreground text-xs justify-between'>
                 <p className=''>
-                  Transfer fee: <span>{fee}</span>
+                  Transfer fee: <span>{tokenDisplay(fee)}</span>
                 </p>
                 <p className='font-medium'>
-                  Available balance: <span>{balance}</span>
+                  Available balance: <span>{tokenDisplay(balance)}</span>
                 </p>
               </div>
             </div>

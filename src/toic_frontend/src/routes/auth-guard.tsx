@@ -10,7 +10,7 @@ function hasPermission(path: string, authed: boolean, onboarded: boolean) {
   if (path === '/new-story' || path.startsWith('/me/') || path === '/onboarding') {
     return authed
   }
-  if (path === '/') return true
+  if (path === '/' || path.startsWith('/p/')) return true
   return authed
 }
 

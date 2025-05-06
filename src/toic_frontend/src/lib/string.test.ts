@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encodeId, decodeId } from './string'
+import { encodeId, decodeId, tokenDisplay } from './string'
 
 describe('string.ts', () => {
   it('should encode a BigInt to a base64 string', () => {
@@ -26,5 +26,28 @@ describe('string.ts', () => {
   it('should throw an error when decoding an invalid base64 string', () => {
     const invalidBase64 = 'invalid_base64'
     expect(() => decodeId(invalidBase64)).toThrow()
+  })
+
+  it('should format a BigInt token with commas', () => {
+    const token = BigInt('1234567890')
+    const formatted = tokenDisplay(token)
+    expect(formatted).toBe('1,234,567,890')
+  })
+
+  it('should format a number token with commas', () => {
+    const token = 1234567
+    const formatted = tokenDisplay(token)
+    expect(formatted).toBe('1,234,567')
+  })
+
+  it('should format a string token with commas', () => {
+    const token = '9876543210'
+    const formatted = tokenDisplay(token)
+    expect(formatted).toBe('9,876,543,210')
+  })
+
+  it('should return "0" for null or undefined token', () => {
+    expect(tokenDisplay(null)).toBe('0')
+    expect(tokenDisplay(undefined)).toBe('0')
   })
 })
