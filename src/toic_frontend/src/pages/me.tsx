@@ -52,7 +52,17 @@ export default function MePage() {
           Supported
         </TabsTrigger> */}
         </TabsList>
-        <Content menu='published' loading={false} items={[]} />
+        <Content
+          menu='published'
+          loading={fetchingPublished}
+          items={published.map(p => ({
+            title: p.title,
+            id: encodeId(p.id),
+            detail: p.detail,
+            date: p.created_at,
+            readTime: p.read_time
+          }))}
+        />
         <Content
           menu='draft'
           loading={fetchingDrafts}
