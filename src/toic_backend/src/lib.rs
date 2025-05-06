@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use candid::Principal;
 use ic_cdk::{caller, export_candid, query, update};
 use serde_bytes::ByteBuf;
@@ -45,7 +43,7 @@ async fn create_draft(args: SaveDraftArgs) -> ApiResult<Draft> {
 }
 
 #[update]
-async fn update_draft(id: u64, args: SaveDraftArgs) -> ApiResult<()> {
+async fn update_draft(id: u64, args: SaveDraftArgs) -> ApiResult<u32> {
     let identity = get_and_validate_caller()?;
 
     DRAFT_SERVICE

@@ -11,11 +11,13 @@ type DraftingState = {
   selectedId: string | null
   saving: boolean
   fetching: boolean
+  publishing: boolean
   draftTitle: string | null
   draftContent: string | null
   category: CategoryName | null
   description: string | null
   error: '404' | string | null
+  readTime: number
 }
 
 type DraftingAction = {
@@ -24,9 +26,10 @@ type DraftingAction = {
   setDraftTitle: (title?: string) => Promise<void>
   setContent: (content?: string) => Promise<void>
   save: (args: Partial<Pick<DraftingState, 'category' | 'description' | 'draftTitle' | 'draftContent'>>) => void
-  saveDetail: (args: Partial<Pick<DraftingState, 'category' | 'description'>>) => void
+  saveDetail: (args: Partial<Pick<DraftingState, 'category' | 'description'>>) => Promise<void>
   getDraft: (id: string) => Promise<void>
   publish: () => Promise<string>
+  assistAiDescription: () => void
   errorHandled: () => void
 }
 
@@ -34,11 +37,13 @@ const initialState: DraftingState = {
   selectedId: null,
   saving: false,
   fetching: false,
+  publishing: false,
   draftTitle: null,
   draftContent: null,
   category: null,
   description: null,
-  error: null
+  error: null,
+  readTime: 0
 }
 
 export const NewStoryIdPlaceholder = 'itisnewstory'
@@ -97,8 +102,6 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       throw 'Saving failed'
     }
 
-    set({ saving: true })
-
     let hasDetailUpdate = false
     // add extra validation inside
     if (category && get().category !== category) {
@@ -107,6 +110,13 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     if (description != null && get().description !== description) {
       hasDetailUpdate = true
     }
+
+    if (!hasDetailUpdate) {
+      console.log('no change, skipping')
+      return
+    }
+
+    set({ saving: true })
 
     const storyDetailDid: CandidOption<StoryDetail> = hasDetailUpdate
       ? [
@@ -140,7 +150,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     }
     const actualId = decodeId(selectedId)
     const result = await beService().update_draft(actualId, saveArgs)
-    const [, err] = unwrapResult(result)
+    const [read_time, err] = unwrapResult(result)
     if (err) {
       set({ saving: false })
       throw err.message
@@ -148,7 +158,8 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     return set(state => ({
       saving: false,
       category: hasDetailUpdate && category ? category : state.category,
-      description: hasDetailUpdate && description != null ? description : state.description
+      description: hasDetailUpdate && description != null ? description : state.description,
+      readTime: read_time ?? state.readTime
     }))
   },
 
@@ -189,7 +200,6 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       detail: storyDetailDid
     }
 
-    console.log('mau disave:', selectedId, ' args:', saveArgs)
     if (selectedId === NewStoryIdPlaceholder) {
       const result = await beService().create_draft(saveArgs)
       const [draft, err] = unwrapResult(result)
@@ -202,13 +212,19 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
         set({ saving: false })
         throw 'Saving failed'
       }
-      console.log('create draft with id', draft.id)
-      return set({ selectedId: encodeId(draft.id), saving: false, draftTitle, draftContent, category, description })
+      return set({
+        selectedId: encodeId(draft.id),
+        saving: false,
+        draftTitle,
+        draftContent,
+        category,
+        description,
+        readTime: draft.read_time
+      })
     }
     const actualId = decodeId(selectedId)
-    console.log('mau update', actualId)
     const result = await beService().update_draft(actualId, saveArgs)
-    const [, err] = unwrapResult(result)
+    const [read_time, err] = unwrapResult(result)
     if (err) {
       set({ saving: false })
       throw err.message
@@ -220,7 +236,8 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       draftTitle: titleUpdated ? draftTitle : state.draftTitle,
       draftContent: contentUpdated ? draftContent : state.draftContent,
       category: hasDetailUpdate && category ? category : state.category,
-      description: hasDetailUpdate && description != null ? description : state.description
+      description: hasDetailUpdate && description != null ? description : state.description,
+      readTime: read_time ?? state.readTime
     }))
   },
 
@@ -255,7 +272,7 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
     const description = storyDetail?.description ?? null
     const draftContent = content.content
 
-    set({ description, category, draftContent, draftTitle, selectedId: id })
+    set({ description, category, draftContent, draftTitle, selectedId: id, readTime: outline.read_time })
   },
 
   publish: async () => {
@@ -264,20 +281,33 @@ export const useDraftingStore = create<DraftingState & DraftingAction>()((set, g
       console.error('publishing an empty id draft')
       throw 'Publish failed'
     }
-    set({ saving: true })
+    set({ publishing: true })
 
     const actualId = decodeId(id)
     const result = await beService().publish_draft(actualId)
     const [story, err] = unwrapResult(result)
-    set({ saving: false })
+    set({ publishing: false })
     if (!!err) {
       throw err.message
     }
-    set({ saving: false })
+    set({ publishing: false })
     if (!story) {
       console.log('null story after publish')
       throw 'Publish failed'
     }
     return encodeId(story.id)
+  },
+  assistAiDescription: async () => {
+    const id = get().selectedId
+    if (!id) {
+      console.error('id is empty')
+      return
+    }
+    const result = await beService().assist_action({ GenerateDescription: decodeId(id) })
+    const [str, err] = unwrapResult(result)
+    if (!!err || !str) {
+      console.error(err?.message ?? 'empty result')
+    }
+    set({ description: str })
   }
 }))

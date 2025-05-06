@@ -99,7 +99,7 @@ impl DraftService {
         id: u64,
         args: SaveDraftArgs,
         identity: Principal,
-    ) -> ServiceResult<()> {
+    ) -> ServiceResult<u32> {
         validate_empty_save_args(&args, "Nothing to update")?;
 
         let mut draft = self
@@ -137,10 +137,11 @@ impl DraftService {
             if read_estimate_diff == 0 && args.title.is_none() && !is_detail_changed {
                 // No changes to the draft entity while no significant difference in read time
                 // updating content without updating draft entity's read estimation
-                return Ok(());
+                return Ok(draft.read_time);
             }
             draft.read_time = new_read_estimate;
         }
+        let read_time = draft.read_time;
 
         self.draft_repository.update(draft).map_err(|e| match e {
             RepositoryError::NotFound => ServiceError::DraftNotFound,
@@ -148,7 +149,7 @@ impl DraftService {
                 reason: format!("Failed to update draft: {}", e),
             },
         })?;
-        Ok(())
+        Ok(read_time)
     }
 
     pub async fn publish_draft(&self, id: u64, identity: Principal) -> ServiceResult<Story> {
