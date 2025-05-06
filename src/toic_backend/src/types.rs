@@ -99,7 +99,33 @@ impl Storable for Category {
     fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
         ciborium::from_reader(bytes.as_ref()).unwrap()
     }
-    const BOUND: Bound = Bound::Unbounded;
+
+    // to allow tuple stable structure encoding
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 24,
+        is_fixed_size: true,
+    };
+}
+
+#[derive(Debug, CandidType, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct StorablePrincipal(pub Principal);
+
+impl Storable for StorablePrincipal {
+    fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
+        let mut encoded = Vec::new();
+        ciborium::into_writer(&self.0, &mut encoded).unwrap();
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<[u8]>) -> Self {
+        Self(ciborium::from_reader(bytes.as_ref()).unwrap())
+    }
+
+    // to allow tuple stable structure encoding
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 29,
+        is_fixed_size: true,
+    };
 }
 
 #[derive(Debug, CandidType, Deserialize, Serialize, Clone)]
