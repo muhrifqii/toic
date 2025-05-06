@@ -23,7 +23,8 @@ import {
   Transformer,
   UNORDERED_LIST,
   $convertToMarkdownString,
-  $convertFromMarkdownString
+  $convertFromMarkdownString,
+  BOLD_ITALIC_STAR
 } from '@lexical/markdown'
 import lexicalTheme from '../themes/lexical'
 import { EditorFloatingMenu } from './editor-floating-menu'
@@ -43,6 +44,7 @@ const transformers: Transformer[] = [
   HEADING,
   LINK,
   BOLD_ITALIC_UNDERSCORE,
+  BOLD_ITALIC_STAR,
   BOLD_STAR,
   BOLD_UNDERSCORE,
   ITALIC_STAR,
