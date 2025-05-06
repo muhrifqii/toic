@@ -33,10 +33,12 @@ export default function LandingPage() {
           <img src='/toic_full.png' className='my-20 w-3xl' />
         </section>
 
+        {/* Value Proposition */}
         <section className='text-center py-20 px-4 bg-gradient-to-b from-background to-muted/80'>
           <h1 className='text-4xl font-bold mb-4'>Write. Read. Inspire.</h1>
           <p className='text-lg text-muted-foreground mb-6 max-w-xl mx-auto'>
-            Discover compelling stories, share your voice, and earn rewards — all on the decentralized web.
+            TOIC is a decentralized writing platform powered by ICP. Tell your stories, grow your audience, and earn
+            real rewards with full ownership.
           </p>
           <Button size='lg' onClick={onLoginClicked}>
             Internet Identity Login
@@ -50,19 +52,22 @@ export default function LandingPage() {
             <div className='bg-card shadow rounded-xl p-6'>
               <h3 className='text-xl font-bold mb-2'>Write</h3>
               <p className='text-muted-foreground'>
-                Use our intuitive editor to draft stories that matter — fiction, essays, memoirs, and more.
+                Create with our powerful markdown-supported editor that autosaves your drafts. Write fiction, articles,
+                or essays — your story, your voice.
               </p>
             </div>
             <div className='bg-card shadow rounded-xl p-6'>
               <h3 className='text-xl font-bold mb-2'>Publish</h3>
               <p className='text-muted-foreground'>
-                Publish to the blockchain-backed platform. Your work stays yours, forever.
+                Publish directly to the Internet Computer with full data ownership. Your work is immutable,
+                censorship-resistant, and always accessible.
               </p>
             </div>
             <div className='bg-card shadow rounded-xl p-6'>
               <h3 className='text-xl font-bold mb-2'>Earn</h3>
               <p className='text-muted-foreground'>
-                Receive token-based rewards as readers engage with your content — no ads, no middlemen.
+                Earn tokens through likes, tips, and referrals. The more readers engage with your stories, the more you
+                earn — no ads, no intermediaries.
               </p>
             </div>
           </div>
@@ -74,11 +79,19 @@ export default function LandingPage() {
             {[
               {
                 title: 'Powerful Editor',
-                desc: 'Craft beautiful stories with our rich editor. Markdown supported.',
+                desc: 'Autosaving, markdown-ready editor for serious writers. Supports rich content, fast drafts, and story management.',
                 icon: <PenBox />
               },
-              { title: 'Token Rewards', desc: 'Get rewarded for your creativity on-chain.', icon: <HeartHandshake /> },
-              { title: 'Smart Feed', desc: 'Tailored stories based on your interest.', icon: <ListFilter /> }
+              {
+                title: 'Token Rewards',
+                desc: 'ICRC-2 tokens power the economy. Stake to unlock AI features, tip your favorite writers, or receive airdrops on signup.',
+                icon: <HeartHandshake />
+              },
+              {
+                title: 'Smart Feed',
+                desc: 'Feed curated for you with a recommender engine — discover trending stories, niche creators, and personalized content.',
+                icon: <ListFilter />
+              }
             ].map(({ title, desc, icon }) => (
               <div key={title} className='bg-background p-6 rounded-xl shadow'>
                 <span className='m-1'>{icon}</span>
@@ -92,7 +105,9 @@ export default function LandingPage() {
         {/* CTA */}
         <section className='py-20 text-center bg-background'>
           <h2 className='text-3xl font-bold mb-4'>Join the creative revolution</h2>
-          <p className='text-muted-foreground mb-6'>Start writing and grows the community today — it's free.</p>
+          <p className='text-muted-foreground mb-6'>
+            Build your following, publish fearlessly, and earn with every word — all powered by the Internet Computer.
+          </p>
           <Button size='lg' onClick={onLoginClicked}>
             Get Started
           </Button>
@@ -103,7 +118,7 @@ export default function LandingPage() {
 
   return (
     <>
-      <main className='container mx-auto p-8 space-y-6'>
+      <main className=''>
         <HomeLayout />
       </main>
     </>

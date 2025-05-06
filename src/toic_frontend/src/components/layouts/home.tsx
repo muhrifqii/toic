@@ -1,40 +1,113 @@
 import { encodeId, formatDate } from '@/lib/string'
 import { useFeedStore } from '@/store/feed'
 import { StoryDetail } from '@declarations/toic_backend/toic_backend.did'
-import { Dot } from 'lucide-react'
+import { Dot, Plus, Share } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link } from 'react-router'
 import { StorySkeleton } from '../blocks/story-skeleton'
+import { Button } from '../ui/button'
+import { useAuthStore } from '@/store/auth'
+import { Separator } from '../ui/separator'
 
 export default function HomeLayout() {
   const getRecommended = useFeedStore(state => state.getRecommended)
-
   const recommendedLoading = useFeedStore(state => state.fetchingRecommended)
   const recommendedStories = useFeedStore(state => state.recommended)
+
+  const user = useAuthStore(state => state.user)
 
   useEffect(() => {
     getRecommended()
   }, [])
 
   return (
-    <div>
-      {recommendedLoading ? (
-        <StorySkeleton />
-      ) : recommendedStories.length === 0 ? (
-        <div className='flex text-3xl text-muted-foreground items-center h-40'>
-          <h1 className='text-center w-full my-auto'>It's empty in here</h1>
-        </div>
-      ) : (
-        recommendedStories
-          .map(p => ({
-            title: p.title,
-            id: encodeId(p.id),
-            detail: p.detail,
-            date: p.created_at,
-            readTime: p.read_time
-          }))
-          .map(story => <RowItemContent {...story} key={story.id} />)
-      )}
+    <div className='container mx-auto p-8 space-y-6 max-w-4xl px-4 py-10'>
+      <section>
+        <h1 className='text-3xl font-bold'>
+          Welcome back, <span className='text-primary-foreground'>{user?.name}</span>
+        </h1>
+        <p className='text-muted-foreground'>Your creative journey continues — keep writing and exploring.</p>
+      </section>
+
+      {/* Quick Actions */}
+      <section className='flex gap-4 flex-wrap'>
+        <Button asChild>
+          <Link to='/new-story'>
+            <Plus /> Write New Story
+          </Link>
+        </Button>
+        <Button variant='outline'>
+          <Share /> Share Your Profile
+        </Button>
+        {/* {tokenBalance > 1_000_000 && (
+          <span className='rounded-full bg-green-100 text-green-700 px-3 py-1 text-sm'>AI Features Unlocked</span>
+        )} */}
+      </section>
+
+      <Separator className='mt-8' />
+
+      {/* Recommended Feed */}
+      <section>
+        <h2 className='text-2xl font-semibold'>Recommended for you</h2>
+        {recommendedLoading ? (
+          <StorySkeleton />
+        ) : recommendedStories.length === 0 ? (
+          <div className='text-muted-foreground text-center'>It's empty in here</div>
+        ) : (
+          recommendedStories
+            .map(p => ({
+              title: p.title,
+              id: encodeId(p.id),
+              detail: p.detail,
+              date: p.created_at,
+              readTime: p.read_time
+            }))
+            .map(story => <RowItemContent {...story} key={story.id} />)
+        )}
+      </section>
+
+      {/* Drafts Preview */}
+      {/* {drafts.length > 0 && (
+        <section>
+          <h2 className='text-xl font-semibold mb-2'>Your Drafts</h2>
+          <ul className='space-y-3'>
+            {drafts.map(d => (
+              <li key={d.id}>
+                <Link to={`/edit/${encodeId(d.id)}`} className='text-blue-600 underline'>
+                  {d.title || 'Untitled Draft'}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )} */}
+
+      {/* Published Stories */}
+      {/* {published.length > 0 && (
+        <section>
+          <h2 className='text-xl font-semibold mb-2'>Your Stories</h2>
+          <ul className='space-y-3'>
+            {published.map(p => (
+              <li key={p.id}>
+                <Link to={`/p/${encodeId(p.id)}`} className='text-blue-600 underline'>
+                  {p.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )} */}
+
+      {/* Token Summary / Referral */}
+      {/* <section className='bg-muted p-4 rounded-lg shadow-sm'>
+        <p className='text-muted-foreground'>
+          You currently hold <span className='font-semibold'>{tokenBalance.toLocaleString()} TOIC</span>.
+          {tokenBalance >= 1_000_000
+            ? ' You have unlocked AI features.'
+            : ' Stake 1,000,000 TOIC to unlock advanced writing tools.'}
+        </p>
+        <p className='mt-2 text-muted-foreground'>Invite friends using your referral code and earn airdrops!</p>
+      </section> */}
     </div>
   )
 }
@@ -52,7 +125,7 @@ function RowItemContent(prop: RowItemContentProp) {
   return (
     <Link
       to={`/p/${prop.id}`}
-      className='flex flex-col items-start gap-2 whitespace-nowrap border-b py-6 text-sm leading-tight last:border-b-0'
+      className='flex flex-col items-start gap-2 border-b py-6 text-sm leading-tight last:border-b-0'
     >
       <span className='line-clamp-2 font-semibold text-2xl'>{prop.title}</span>
       <span className='line-clamp-2 whitespace-break-spaces text-lg text-muted-foreground'>

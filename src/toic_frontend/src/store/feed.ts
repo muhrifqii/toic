@@ -23,7 +23,7 @@ type FeedState = {
   currentStory: StoryStorable | null
   fetching: boolean
   fetchingRecommended: boolean
-  error: '404' | null
+  error: '404' | '401' | null
 }
 
 type FeedAction = {
@@ -31,6 +31,7 @@ type FeedAction = {
   getStory: (id: string) => Promise<void>
   resetCurrent: () => void
   reset: () => void
+  support: () => void
 }
 
 const initialState: FeedState = {
@@ -93,5 +94,7 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
   },
   reset: () => {
     set({ ...initialState })
-  }
+  },
+
+  support: async () => {}
 }))
