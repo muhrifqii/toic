@@ -117,14 +117,16 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
       tip: [],
       support: [n]
     })
-    const [, err] = unwrapResult(result)
+    const [accepted, err] = unwrapResult(result)
     set({ commonLoading: false })
     if (err) {
       console.error(err.message)
       set({ error: 'api', errorMessage: err.message })
       return
     }
-    set(prev => ({ currentStory: { ...prev.currentStory!, totalSupport: prev.currentStory!.totalSupport + n } }))
+    if (accepted) {
+      set(prev => ({ currentStory: { ...prev.currentStory!, totalSupport: prev.currentStory!.totalSupport + n } }))
+    }
   },
 
   donate: async (amount: bigint) => {
@@ -140,7 +142,7 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
       tip: [amount],
       support: []
     })
-    const [, err] = unwrapResult(result)
+    const [accepted, err] = unwrapResult(result)
     set({ commonLoading: false })
     if (err) {
       console.error(err.message)
@@ -148,7 +150,9 @@ export const useFeedStore = create<FeedState & FeedAction>()((set, get) => ({
       return
     }
 
-    set(prev => ({ currentStory: { ...prev.currentStory!, totalTip: prev.currentStory!.totalTip + amount } }))
-    useWalletStore.getState().getBalance()
+    if (accepted) {
+      set(prev => ({ currentStory: { ...prev.currentStory!, totalTip: prev.currentStory!.totalTip + amount } }))
+      useWalletStore.getState().getBalance()
+    }
   }
 }))
